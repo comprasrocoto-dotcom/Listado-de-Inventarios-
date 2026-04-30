@@ -1,0 +1,1331 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sistema de Inventarios</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #ffffff;
+    --bg-secondary: #f5f5f4;
+    --bg-tertiary: #eeecea;
+    --text: #1a1a18;
+    --text-muted: #6b6b68;
+    --text-hint: #9c9c98;
+    --border: rgba(0,0,0,0.12);
+    --border-strong: rgba(0,0,0,0.25);
+    --accent: #D85A30;
+    --accent-green: #1D9E75;
+    --info-bg: #e6f1fb;
+    --info-text: #0c447c;
+    --radius: 8px;
+    --radius-lg: 12px;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1c1c1a;
+      --bg-secondary: #262624;
+      --bg-tertiary: #303030;
+      --text: #f0ede8;
+      --text-muted: #a0a09c;
+      --text-hint: #6e6e6a;
+      --border: rgba(255,255,255,0.10);
+      --border-strong: rgba(255,255,255,0.22);
+      --info-bg: #042c53;
+      --info-text: #85b7eb;
+    }
+  }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: var(--bg-tertiary);
+    color: var(--text);
+    min-height: 100vh;
+  }
+
+  .page {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 2rem 1rem 4rem;
+  }
+
+  /* Header */
+  .app-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 1.5rem;
+    flex-wrap: wrap;
+  }
+  .app-title { font-size: 22px; font-weight: 500; color: var(--text); }
+  .app-subtitle { font-size: 13px; color: var(--text-muted); margin-top: 3px; }
+  .header-actions { display: flex; gap: 8px; align-items: center; }
+
+  /* Buttons */
+  .btn {
+    padding: 8px 18px;
+    font-size: 13px;
+    font-weight: 500;
+    border: 0.5px solid var(--border-strong);
+    border-radius: var(--radius);
+    background: var(--bg);
+    color: var(--text);
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .btn:hover { background: var(--bg-secondary); }
+  .btn-primary {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+  }
+  .btn-primary:hover { opacity: 0.9; background: var(--accent); }
+
+  .saved-msg {
+    font-size: 12px;
+    color: var(--accent-green);
+    font-weight: 500;
+    display: none;
+  }
+
+  /* Tabs */
+  .tabs {
+    display: flex;
+    gap: 2px;
+    border-bottom: 0.5px solid var(--border);
+    margin-bottom: 1rem;
+  }
+  .tab {
+    padding: 9px 20px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    border: none;
+    background: none;
+    color: var(--text-muted);
+    border-bottom: 2px solid transparent;
+    margin-bottom: -0.5px;
+    transition: color 0.15s;
+  }
+  .tab.active { color: var(--text); border-bottom-color: var(--accent); }
+  .tab:hover:not(.active) { color: var(--text); }
+
+  /* Controls */
+  .controls {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  .search-box {
+    flex: 1;
+    min-width: 200px;
+    padding: 8px 12px;
+    font-size: 13px;
+    border: 0.5px solid var(--border-strong);
+    border-radius: var(--radius);
+    background: var(--bg);
+    color: var(--text);
+  }
+  .search-box:focus { outline: none; border-color: var(--accent); }
+  .cat-filter {
+    padding: 8px 10px;
+    font-size: 12px;
+    border: 0.5px solid var(--border-strong);
+    border-radius: var(--radius);
+    background: var(--bg);
+    color: var(--text);
+    cursor: pointer;
+  }
+
+  /* Stats */
+  .stats {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 14px;
+    flex-wrap: wrap;
+  }
+  .stat {
+    background: var(--bg-secondary);
+    border-radius: var(--radius);
+    padding: 8px 16px;
+    font-size: 12px;
+    color: var(--text-muted);
+  }
+  .stat strong {
+    font-size: 16px;
+    font-weight: 500;
+    color: var(--text);
+    display: block;
+    margin-bottom: 1px;
+  }
+
+  /* Table container */
+  .table-wrap {
+    border: 0.5px solid var(--border);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    background: var(--bg);
+    max-height: 580px;
+    overflow-y: auto;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+  }
+
+  colgroup col:nth-child(1) { width: 110px; }
+  colgroup col:nth-child(2) { width: auto; }
+  colgroup col:nth-child(3) { width: 90px; }
+  colgroup col:nth-child(4) { width: 90px; }
+
+  thead th {
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--text-muted);
+    text-align: left;
+    padding: 8px 12px;
+    border-bottom: 0.5px solid var(--border);
+    position: sticky;
+    top: 0;
+    background: var(--bg);
+    z-index: 2;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  thead th:last-child { text-align: center; }
+
+  td {
+    padding: 6px 12px;
+    font-size: 13px;
+    color: var(--text);
+    border-bottom: 0.5px solid var(--border);
+    vertical-align: middle;
+  }
+  tr:last-child td { border-bottom: none; }
+  tbody tr:hover td { background: var(--bg-secondary); }
+
+  .cat-row td {
+    padding: 0;
+    background: var(--bg-tertiary) !important;
+  }
+  .cat-label {
+    display: block;
+    padding: 5px 12px;
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .code {
+    font-family: 'SFMono-Regular', Consolas, monospace;
+    font-size: 11px;
+    color: var(--text-muted);
+  }
+  .unit-cell {
+    font-size: 11px;
+    color: var(--text-hint);
+    text-align: center;
+  }
+  .qty-input {
+    width: 68px;
+    padding: 4px 8px;
+    font-size: 12px;
+    border: 0.5px solid var(--border-strong);
+    border-radius: 6px;
+    background: var(--bg);
+    color: var(--text);
+    text-align: right;
+    display: block;
+    margin: 0 auto;
+  }
+  .qty-input:focus { outline: none; border-color: var(--accent); }
+  .qty-input.has-value {
+    background: var(--info-bg);
+    border-color: var(--info-text);
+    color: var(--info-text);
+    font-weight: 500;
+  }
+
+  .no-results {
+    text-align: center;
+    padding: 3rem;
+    font-size: 14px;
+    color: var(--text-muted);
+  }
+
+  /* Print */
+  @media print {
+    body { background: white; }
+    .app-header, .tabs, .controls, .stats, .header-actions { display: none !important; }
+    .table-wrap { max-height: none; border: none; }
+    .qty-input { border: 1px solid #ccc !important; background: white !important; }
+    .page { padding: 0; max-width: 100%; }
+    .print-title { display: block !important; font-size: 16px; font-weight: bold; margin-bottom: 12px; }
+  }
+  .print-title { display: none; }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <div class="app-header">
+    <div>
+      <div class="app-title">Sistema de Inventarios</div>
+      <div class="app-subtitle">Rocoto · Hot Wings · Malanga — Conteo de fin de mes</div>
+    </div>
+    <div class="header-actions">
+      <span class="saved-msg" id="savedMsg">✓ Guardado</span>
+      <button class="btn" onclick="window.print()">Imprimir</button>
+      <button class="btn btn-primary" onclick="saveAll()">Guardar conteo</button>
+    </div>
+  </div>
+
+  <div class="tabs" id="tabs"></div>
+
+  <div class="controls">
+    <input class="search-box" type="text" id="searchInput" placeholder="Buscar por nombre o código..." oninput="renderTable()">
+    <select class="cat-filter" id="catFilter" onchange="renderTable()"></select>
+  </div>
+
+  <div class="stats" id="statsBar"></div>
+
+  <div class="table-wrap">
+    <table>
+      <colgroup>
+        <col><col><col><col>
+      </colgroup>
+      <thead>
+        <tr>
+          <th>Código</th>
+          <th>Artículo</th>
+          <th style="text-align:center">Unidad</th>
+          <th style="text-align:center">Cantidad</th>
+        </tr>
+      </thead>
+      <tbody id="tableBody"></tbody>
+    </table>
+  </div>
+
+</div>
+
+<script>
+const brands = [
+  { name: 'Rocoto', items: [
+{"cat":"ABARROTES","cod":"ABA001","art":"ACEITE DE AJONJOLI KADOYA X 1.62LT","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA002","art":"ACEITE MESTRE OLEO X 3000CC","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA004","art":"ACEITE VEGETAL X 20LT","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA007","art":"AHUMADO/SALSA HUMO ASTEK X 3850ML","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA008","art":"AJINOMOTO X KILO","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA009","art":"AJONJOLI NEGRO X 500GR","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA014","art":"ARMONIA TARTUFATA X 500","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA015","art":"ARROZ CASTELLANO X 1KG","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA017","art":"MANI TRITURADO X500 GR","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA019","art":"PURE DE PAPA KNORR X800G","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA020","art":"AZUCAR MANUELITA BOLSA X 5LB","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA026","art":"BICARBONATO LA GRAN COCINA x500G","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA030","art":"CANELA ASTILLAS SAN VALENTIN X500G","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA035","art":"COBERTURA NEGRA X 2.5KL LUKER","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA037","art":"COCO RALLADO NRO1 IPRODESA","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA039","art":"COLCAFE GRANULADO CLASICO X500 GR","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA045","art":"COMINO MOLIDO X 500GR","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA046","art":"CREMA AVELLANAS CORDILLERA X1K","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA054","art":"FETUHINI MONTICELLO X 500G","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA060","art":"HARINA DE TRIGO HAZ DE OROS X550g","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA062","art":"HUEVOS AA","unit":"UNIDADES"},
+{"cat":"ABARROTES","cod":"ABA066","art":"SALSA DE OSTRAS ASIAFOOD PO 2LT","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA070","art":"ACEITUNAS MORADA ALFA 1000g","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA072","art":"MIEL DE ABEJA PURA S/ VALENTIN","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA074","art":"MIGA DE PAN PANKO BLANCO X 20 KILOS","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA076","art":"MOSTAZA FRUCO GAL X 4015G","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA082","art":"NUEZ MOSCADA GRA","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA083","art":"TEMPURA KILO","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA084","art":"HUEVO DE CODORNIZ 24UND","unit":"UNIDADES"},
+{"cat":"ABARROTES","cod":"ABA089","art":"PAPA DELGADA 9X9 2KG","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA091","art":"MAIZ CANCHA X KILO","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA097","art":"PIMIENTA NEGRA MOLIDA BADIA 453GR","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA098","art":"PIMIENTA ROSADA EN GRANO X250G","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA101","art":"SAL REFISAL X 1000G","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA103","art":"SALSA DE AJI ADEREZOS X 1050G","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA105","art":"SALSA DE SOYA X 20 LITROS","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA106","art":"SALSA DE TOMATE FRUCO GX 4350G","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA114","art":"SPRING ROLL WEI CHUAN X 25 WRAPS","unit":"UNIDADES"},
+{"cat":"ABARROTES","cod":"ABA115","art":"SRIRACHA HOT CHILLI SAUCE x 482ML","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA117","art":"SEAWEED SALAD SHIRAKIKU X 4.4 LB","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA118","art":"TOGARASHI HACHI 300 GR","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA126","art":"CEREZA MARRASCHINO ALFAFRAS X 1000G","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA144","art":"HONDASHI 1KG","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA162","art":"PULPA DE TAMARINDO X KILO","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA164","art":"MENTAS 50UND COLOMBINA","unit":"UNIDADES"},
+{"cat":"ABARROTES","cod":"ABA165","art":"MAIZ TIERNO METOO VACUM X 340G","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA166","art":"AJONJOLI BLANCO TOSTADO 500G","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA167","art":"ARVEJA MCCAIN X 1KG","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA168","art":"CHICHA JORA 1L","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA175","art":"ALMIDON EXTRA ROSQUILLERO X1000 GR","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA189","art":"PANELA REG. SAN VALENTIN X PAR","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA192","art":"MIXTURA DE AJONJOLI X 500 GR","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA196","art":"ACEITE DE OLIVA VIR EXTRA GRAN ABRIL PX1L","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA213","art":"STAR ANISE THAI X113GR","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA225","art":"MASAGO X 4.4 LB","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA226","art":"QUINUA BLANCA X 500 GRA","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA240","art":"MAYONESA ESP ZAFRAN X 3600G","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA255","art":"NUEZ PECANA X 907 GR","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA257","art":"MAIZENA (FECULA DE MAIZ) X KILO","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA261","art":"SPAGHETTI N5 MONTICELLO 500 GR","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA276","art":"MIXTURA DE QUINUA X500G","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA293","art":"ACEITUNA VERDE DESHUESADA 330GR","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA298","art":"MAYONESA ALASENA X475G","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"VIN067","art":"VINO BLANCO CAVIC TETRAPACK X 1LT","unit":"GRAMOS"},
+{"cat":"AGUA Y TE","cod":"GAS001","art":"ACQUA PANNA VIDRIO 505 ML","unit":"UNIDADES"},
+{"cat":"AGUA Y TE","cod":"GAS004","art":"AGUA S. PELLEGRINO VIDRIO 505ML","unit":"UNIDADES"},
+{"cat":"AGUA Y TE","cod":"GAS007","art":"MANANTIAL CON GAS VIDRIO 300ML","unit":"UNIDADES"},
+{"cat":"AGUA Y TE","cod":"GAS008","art":"MANANTIAL SIN GAS 500ML","unit":"UNIDADES"},
+{"cat":"AGUA Y TE","cod":"GAS036","art":"TE HATSU AMARILLO 400X6","unit":"UNIDADES"},
+{"cat":"AGUA Y TE","cod":"GAS037","art":"TE HATSU AZUL 400ML X 6","unit":"UNIDADES"},
+{"cat":"AGUA Y TE","cod":"GAS038","art":"TE HATSU BLANCO 400ML X6","unit":"UNIDADES"},
+{"cat":"AGUA Y TE","cod":"GAS039","art":"TE HATSU LILA 400ML X6","unit":"UNIDADES"},
+{"cat":"AGUA Y TE","cod":"GAS040","art":"TE HATSU NEGRO 400ML X6","unit":"UNIDADES"},
+{"cat":"AGUA Y TE","cod":"GAS041","art":"TE HATSU ROJO 400X6","unit":"UNIDADES"},
+{"cat":"AGUA Y TE","cod":"GAS042","art":"TE HATSU ROSAS 400ML X6","unit":"UNIDADES"},
+{"cat":"AGUA Y TE","cod":"GAS051","art":"TE HATSU ROSADO SIX400X6","unit":"UNIDADES"},
+{"cat":"AGUA Y TE","cod":"GAS054","art":"AGUA HATSU X 6UND","unit":"UNIDADES"},
+{"cat":"CERVEZAS","cod":"CER001","art":"CERVEZA AGUILA LIGHT RETORNABLE 330CC","unit":"UNIDADES"},
+{"cat":"CERVEZAS","cod":"CER003","art":"CERVEZA AGUILA RETORNABLE 330CC","unit":"UNIDADES"},
+{"cat":"CERVEZAS","cod":"CER004","art":"CERVEZA CLUB COL DORADA RETORNABLE 330CC","unit":"UNIDADES"},
+{"cat":"CERVEZAS","cod":"CER006","art":"CERVEZA CLUB COL ROJA RETORNABLE 330 CC","unit":"UNIDADES"},
+{"cat":"CERVEZAS","cod":"CER007","art":"CERVEZA TORREALTA","unit":"UNIDADES"},
+{"cat":"CERVEZAS","cod":"CER009","art":"CERVEZA CORONA NRB SIXPACK X 330ML","unit":"UNIDADES"},
+{"cat":"CERVEZAS","cod":"CER010","art":"CERVEZA HEINIKEN BOT.NR 330 6X4","unit":"UNIDADES"},
+{"cat":"CERVEZAS","cod":"CER012","art":"CERVEZA STELLA ARTOIS SIXPACK NR 330 MEX","unit":"UNIDADES"},
+{"cat":"CERVEZAS","cod":"CER013","art":"CERVEZA CUSQUENA NEGRA SIX PACK (310 ML)","unit":"UNIDADES"},
+{"cat":"CERVEZAS","cod":"CER016","art":"CERVEZA PILSEN NEGRA COCINA","unit":"UNIDADES"},
+{"cat":"FRUVER","cod":"FRU001","art":"AGUACATE CHOCKETTE X KILO","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"FRU003","art":"AJI AMARILLO X KILO","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"FRU005","art":"AJI DULCE X KILO","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"FRU007","art":"AJI ROCOTO X KILO","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"FRU008","art":"AJO LIMPIO X KILO","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"FRU009","art":"ALBAHACA X KILO","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"FRU012","art":"ARVEJA DESGRANADA X KILO","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"FRU016","art":"BROCOLI X KILO","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"FRU017","art":"BROTES DE RABANO 50","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"FRU018","art":"CAMOTE X KILO","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"FRU020","art":"CEBOLLA BLANCA LIMPIA X KILO","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"FRU021","art":"CEBOLLA MORADA LIMPIA","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"FRU022","art":"CEBOLLA PUERRO X KILO","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"FRU023","art":"CEBOLLA RAMA LIMPIA X KILO","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"FRU025","art":"CHAMPIÑON X KILO","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"FRU027","art":"CHAMPIÑON PORTOBELLO X KILO","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"FRU028","art":"CILANTRO LIMPIO X KILO","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"FRU029","art":"COCO X KILO","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"FRU035","art":"FRESA JUMBO I X KILO","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"FRU037","art":"HABICHUELA X KILO","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"FRU038","art":"HIERBA BUENA X 500 KILO","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"FRU039","art":"JALAPEÑO X KILO","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"FRU040","art":"JENGIBRE X KILO","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"FRU041","art":"LAUREL X KILO","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"FRU042","art":"LIMON MANDARINO X KILO","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"FRU043","art":"LIMON TAHITI X KILO","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"FRU047","art":"MANGO TOMMY X KILO","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"FRU053","art":"AJI PANCA X KILO","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"FRU054","art":"MORA X KILO","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"FRU058","art":"OREGANO X 500GR","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"FRU062","art":"PAPA CRIOLLA BALIN O CHIRIYA","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"FRU063","art":"PAPA NEVADA X KILO","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"FRU065","art":"PEPINO COHOMBRO X KILO","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"FRU067","art":"PEREJIL CRESPO X KILO","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"FRU069","art":"PIMENTON X KILO","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"FRU071","art":"PLATANO MADURO KILO","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"FRU072","art":"PLATANO VERDE X KILO","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"FRU074","art":"REMOLACHA X KILO","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"FRU075","art":"ROMERO X KILO","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"FRU077","art":"TOMATE CHERRY X KILO","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"FRU078","art":"TOMATE CHONTO X KILO","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"FRU080","art":"TOMATE PERLA X KILO","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"FRU085","art":"YUCA X KILO","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"FRU086","art":"ZANAHORIA TRONCO X KILO","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"FRU087","art":"AGUACATE HASS X KILO","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"FRU098","art":"LECHUGA ROMANA 250G","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"FRU099","art":"COGOLLO EUROPEO 250","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"FRU105","art":"CEBOLLIN KILO","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"FRU110","art":"AJI LIMO X KILO","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"ORD075","art":"APIO X KILO","unit":"GRAMOS"},
+{"cat":"GASEOSAS Y SODAS","cod":"GAS005","art":"AGUA TONICA TRADICIONAL JUNIPER X200ML","unit":"UNIDADES"},
+{"cat":"GASEOSAS Y SODAS","cod":"GAS011","art":"CIDRA DE ROSAS JUNIPER X 207ML","unit":"UNIDADES"},
+{"cat":"GASEOSAS Y SODAS","cod":"GAS013","art":"COCA COLA 10 OZ VIDRIO","unit":"UNIDADES"},
+{"cat":"GASEOSAS Y SODAS","cod":"GAS014","art":"COCA COLA S/AZ 10 OZ","unit":"UNIDADES"},
+{"cat":"GASEOSAS Y SODAS","cod":"GAS015","art":"COCONUT JUNIPER X 207 MIL","unit":"UNIDADES"},
+{"cat":"GASEOSAS Y SODAS","cod":"GAS017","art":"ELDER FLOWER TONICA JUNIPER X207ML","unit":"UNIDADES"},
+{"cat":"GASEOSAS Y SODAS","cod":"GAS018","art":"GINGER BEER SIN LICOR JUNIPER X 200ML","unit":"UNIDADES"},
+{"cat":"GASEOSAS Y SODAS","cod":"GAS022","art":"JUNIPER TORONJA X207ML","unit":"UNIDADES"},
+{"cat":"GASEOSAS Y SODAS","cod":"GAS029","art":"SCHEEPPES SODA 10 OZ","unit":"UNIDADES"},
+{"cat":"GASEOSAS Y SODAS","cod":"GAS030","art":"GINGER ALE BOTELLA 300ML SCHWEPPES","unit":"UNIDADES"},
+{"cat":"GASEOSAS Y SODAS","cod":"GAS035","art":"SPRITE 400 ML","unit":"UNIDADES"},
+{"cat":"GASEOSAS Y SODAS","cod":"GAS044","art":"RED BULL ENERGY DRINK 8.3OZ CAN","unit":"UNIDADES"},
+{"cat":"INSUMOS BAR","cod":"ABA018","art":"NECTAR DE AGAVE ORGANICO 1.25 KG","unit":"GRAMOS"},
+{"cat":"INSUMOS BAR","cod":"ABA022","art":"AZUCAR SOBRES MANUELITA X200S X 5G","unit":"UNIDADES"},
+{"cat":"INSUMOS BAR","cod":"ABA031","art":"CANELA EN POLVO BADIA X454G","unit":"GRAMOS"},
+{"cat":"INSUMOS BAR","cod":"ABA032","art":"CARDAMOMO ORO X500GR (PELADO)","unit":"GRAMOS"},
+{"cat":"INSUMOS BAR","cod":"ABA033","art":"CLAVOS DE OLOR X125GR","unit":"GRAMOS"},
+{"cat":"INSUMOS BAR","cod":"ABA048","art":"CREMA DE COCO ROLAND X 960 GR","unit":"GRAMOS"},
+{"cat":"INSUMOS BAR","cod":"ABA058","art":"GOTAS AMARGAS BITTER ANGOSTURA 150G","unit":"GRAMOS"},
+{"cat":"INSUMOS BAR","cod":"ABA068","art":"SALSA WORCESTERSHIRE O PERRINS 592 ML","unit":"GRAMOS"},
+{"cat":"INSUMOS BAR","cod":"ABA108","art":"SALSA EN POLVO TAJIN CLASICO X 142G","unit":"GRAMOS"},
+{"cat":"INSUMOS BAR","cod":"ABA121","art":"CAFE VENETO SELECT PEPA X 2.5 KG","unit":"GRAMOS"},
+{"cat":"INSUMOS BAR","cod":"ABA125","art":"FRESH CITRUS 1.5LT PET (12)","unit":"GRAMOS"},
+{"cat":"INSUMOS BAR","cod":"ABA127","art":"TABASCO PEPPER SAUCE 150ML","unit":"GRAMOS"},
+{"cat":"INSUMOS BAR","cod":"ABA131","art":"LYCHEE SAN VALENTIN 567G DREN 225G","unit":"GRAMOS"},
+{"cat":"INSUMOS BAR","cod":"ABA135","art":"PULPA DE COCO X UNIDAD","unit":"UNIDADES"},
+{"cat":"INSUMOS BAR","cod":"ABA159","art":"SALSA DE CHOCOLATE HERSHEYS X1360GR","unit":"GRAMOS"},
+{"cat":"INSUMOS BAR","cod":"ABA163","art":"HOJA DE COCA 500G","unit":"GRAMOS"},
+{"cat":"INSUMOS BAR","cod":"ABA170","art":"SUGG SYRUP VAINILLA CHOCOANA VIDRIO X750ML","unit":"ONZA"},
+{"cat":"INSUMOS BAR","cod":"ABA172","art":"SUGG SYRUP LYCHE VIDRIO X750ML","unit":"ONZA"},
+{"cat":"INSUMOS BAR","cod":"ABA173","art":"JUGO DE ARANDANOS YUS PET 945 ML","unit":"ONZA"},
+{"cat":"INSUMOS BAR","cod":"ABA174","art":"MANDARINA PAQUETE X 7 UNIDADES","unit":"UNIDADES"},
+{"cat":"INSUMOS BAR","cod":"ABA296","art":"PANELA PULV ORGANIC BLACKMILL SACHET 5GR","unit":"UNIDADES"},
+{"cat":"INSUMOS BAR","cod":"FRU002","art":"GUAYABA AGRIA KILO","unit":"GRAMOS"},
+{"cat":"INSUMOS BAR","cod":"FRU015","art":"BANDEJA UVA ISABELLA X KILO","unit":"GRAMOS"},
+{"cat":"INSUMOS BAR","cod":"FRU019","art":"CARAMBOLO BANDEJA X500G","unit":"GRAMOS"},
+{"cat":"INSUMOS BAR","cod":"FRU033","art":"FLOR DE JAMAICA X KILO","unit":"GRAMOS"},
+{"cat":"INSUMOS BAR","cod":"FRU034","art":"FLORES COMESTIBLES (PENSAMIENTOS)","unit":"GRAMOS"},
+{"cat":"INSUMOS BAR","cod":"FRU044","art":"LULO X KILO","unit":"GRAMOS"},
+{"cat":"INSUMOS BAR","cod":"FRU050","art":"MARACUYA X KILO","unit":"GRAMOS"},
+{"cat":"INSUMOS BAR","cod":"FRU056","art":"NARANJA VALENCIA X KILO","unit":"GRAMOS"},
+{"cat":"INSUMOS BAR","cod":"FRU070","art":"PINA ORO MIEL X KILO","unit":"GRAMOS"},
+{"cat":"INSUMOS BAR","cod":"FRU073","art":"PETALOS DE ROSAS","unit":"GRAMOS"},
+{"cat":"INSUMOS BAR","cod":"FRU082","art":"TORONJA X KILO","unit":"GRAMOS"},
+{"cat":"INSUMOS BAR","cod":"FRU083","art":"UVA VERDE BJ 500 GR","unit":"GRAMOS"},
+{"cat":"INSUMOS BAR","cod":"FRU089","art":"KIWI KILO","unit":"GRAMOS"},
+{"cat":"INSUMOS BAR","cod":"FRU091","art":"LIMON TAHITI KILO BAR","unit":"GRAMOS"},
+{"cat":"INSUMOS BAR","cod":"FRU092","art":"HIERBABUENA KILO BAR","unit":"GRAMOS"},
+{"cat":"INSUMOS BAR","cod":"FRU093","art":"FRESA JUMBO KILO BAR","unit":"GRAMOS"},
+{"cat":"INSUMOS BAR","cod":"FRU094","art":"MANZANA VERDE BAR X KILO","unit":"GRAMOS"},
+{"cat":"INSUMOS BAR","cod":"FRU096","art":"MANGO TOMMY KILO BAR","unit":"GRAMOS"},
+{"cat":"INSUMOS BAR","cod":"FRU115","art":"CURUBA KILO","unit":"GRAMOS"},
+{"cat":"INSUMOS BAR","cod":"FRU120","art":"GULUPA X KILO","unit":"GRAMOS"},
+{"cat":"INSUMOS BAR","cod":"INB003","art":"ACEITE DE COCO VEGETAL","unit":"GRAMOS"},
+{"cat":"INSUMOS BAR","cod":"INB005","art":"ACIDO CITRICO 500GR","unit":"GRAMOS"},
+{"cat":"INSUMOS BAR","cod":"INB006","art":"ACIDO ASCORBICO 500GR","unit":"GRAMOS"},
+{"cat":"INSUMOS BAR","cod":"INB008","art":"ACIDO MALICO 500GR","unit":"GRAMOS"},
+{"cat":"INSUMOS BAR","cod":"INB011","art":"GOTAS AMARGAS ANGOSTURA COCOA BITTERS 100ML","unit":"GRAMOS"},
+{"cat":"INSUMOS BAR","cod":"LAC028","art":"LECHE UHT DESLACTOSADA BOLSA X 1000ML","unit":"GRAMOS"},
+{"cat":"LACTEOS","cod":"LAC001","art":"AREQUIPE ALPINA INSTITUCIONAL 5KG","unit":"GRAMOS"},
+{"cat":"LACTEOS","cod":"LAC004","art":"CREMA DE LECHE X 9700G","unit":"GRAMOS"},
+{"cat":"LACTEOS","cod":"LAC005","art":"CUAJADA COLANTA X 500G","unit":"GRAMOS"},
+{"cat":"LACTEOS","cod":"LAC009","art":"CAJA 10 LT VAINILLA POP CREM","unit":"GRAMOS"},
+{"cat":"LACTEOS","cod":"LAC011","art":"LECHE UHT ENTERA BOLSA X 1000ML","unit":"GRAMOS"},
+{"cat":"LACTEOS","cod":"LAC013","art":"MANTEQUILLA FRESCA BATIDA X KILO","unit":"GRAMOS"},
+{"cat":"LACTEOS","cod":"LAC016","art":"QUESO ALPINA PARMESANO RAYADO 2.5 L","unit":"GRAMOS"},
+{"cat":"LACTEOS","cod":"LAC020","art":"QUESO CREMA GRANEL X 4K","unit":"GRAMOS"},
+{"cat":"LACTEOS","cod":"LAC022","art":"QUESO MOZZARELLA BLOQUE X 2.5K","unit":"GRAMOS"},
+{"cat":"LACTEOS","cod":"LAC025","art":"QUESO PHILADELPHIA KRAFT 190GR","unit":"GRAMOS"},
+{"cat":"LICORES","cod":"LIC001","art":"ABSOLUT 700 ML","unit":"ONZA"},
+{"cat":"LICORES","cod":"LIC002","art":"AGUARDIENTE ANTIOQUENO AZUL 375ML","unit":"UNIDADES"},
+{"cat":"LICORES","cod":"LIC003","art":"AGUARDIENTE ANTIOQUENO AZUL 750ML","unit":"ONZA"},
+{"cat":"LICORES","cod":"LIC007","art":"TEQUILA JOSE CUERVO SILVER X750 ML","unit":"ONZA"},
+{"cat":"LICORES","cod":"LIC008","art":"AMARETTO DISARONNO X 750","unit":"ONZA"},
+{"cat":"LICORES","cod":"LIC009","art":"APEROL X 750ML","unit":"ONZA"},
+{"cat":"LICORES","cod":"LIC011","art":"BAILEYS ORIGINAL 1.0L","unit":"ONZA"},
+{"cat":"LICORES","cod":"LIC015","art":"BUCHANANS 18 ANOS 750ML","unit":"ONZA"},
+{"cat":"LICORES","cod":"LIC017","art":"BUCHANANS DELUXE AGED 12 YEARS 0.750L","unit":"ONZA"},
+{"cat":"LICORES","cod":"LIC020","art":"BULLDOG GIN 750ML","unit":"ONZA"},
+{"cat":"LICORES","cod":"LIC021","art":"BULLEIT BOURBON 0.75L","unit":"ONZA"},
+{"cat":"LICORES","cod":"LIC022","art":"CAMPARI 750","unit":"ONZA"},
+{"cat":"LICORES","cod":"LIC027","art":"DON JULIO 70 700ML","unit":"ONZA"},
+{"cat":"LICORES","cod":"LIC028","art":"DON JULIO ANEJO X700ML","unit":"ONZA"},
+{"cat":"LICORES","cod":"LIC029","art":"DON JULIO REPOSADO 700ML","unit":"ONZA"},
+{"cat":"LICORES","cod":"LIC031","art":"GINEBRA HENDRICKS 750CC","unit":"ONZA"},
+{"cat":"LICORES","cod":"LIC041","art":"PISCO BARSOL QUEBRANTA 4000L","unit":"ONZA"},
+{"cat":"LICORES","cod":"LIC042","art":"DON JULIO BLANCO 0.70L","unit":"ONZA"},
+{"cat":"LICORES","cod":"LIC043","art":"RON BACARDI CARTA BLANCA SUPERIOR 980 ML","unit":"ONZA"},
+{"cat":"LICORES","cod":"LIC049","art":"RON MEDELLIN 3 ANOS 750ML","unit":"ONZA"},
+{"cat":"LICORES","cod":"LIC051","art":"RON MEDELLIN 8 ANOS 750ML","unit":"ONZA"},
+{"cat":"LICORES","cod":"LIC058","art":"RON ZACAPA 23 ANOS 700ML","unit":"ONZA"},
+{"cat":"LICORES","cod":"LIC065","art":"TANQUERAY LONDON DRY GIN 0.70L","unit":"ONZA"},
+{"cat":"LICORES","cod":"LIC082","art":"TEQUILA PATRON SILVER 700","unit":"ONZA"},
+{"cat":"LICORES","cod":"LIC083","art":"MARTINI VERMUTH ROSSO 750ML","unit":"ONZA"},
+{"cat":"LICORES","cod":"LIC091","art":"WHISKY OLD PARR 12 ANOS 750 ML","unit":"ONZA"},
+{"cat":"LICORES","cod":"LIC093","art":"GREY GOOSE ORIGINAL 700ML","unit":"ONZA"},
+{"cat":"PESCADOS Y MARISCOS","cod":"PM003","art":"TUBOS DE CALAMAR X KILO","unit":"GRAMOS"},
+{"cat":"PESCADOS Y MARISCOS","cod":"PM004","art":"CAMARON CRUDO 41-50 0%","unit":"UNIDADES"},
+{"cat":"PESCADOS Y MARISCOS","cod":"PM005","art":"CARNE DE JAIBA CLAWN X KILO","unit":"GRAMOS"},
+{"cat":"PESCADOS Y MARISCOS","cod":"PM007","art":"FILETE DE ATUN ENTERO KG","unit":"GRAMOS"},
+{"cat":"PESCADOS Y MARISCOS","cod":"PM008","art":"COLA DE LANGOSTA UND 130G","unit":"UNIDADES"},
+{"cat":"PESCADOS Y MARISCOS","cod":"PM012","art":"FILETE DE TILAPIA FRESCA","unit":"GRAMOS"},
+{"cat":"PESCADOS Y MARISCOS","cod":"PM015","art":"LANGOSTINOS CRUDO 16/20 X UNIDAD","unit":"UNIDADES"},
+{"cat":"PESCADOS Y MARISCOS","cod":"PM019","art":"SALMON FRESCO 3-4TD","unit":"GRAMOS"},
+{"cat":"PROTEINAS","cod":"PRO007","art":"FILETE DE POLLO X 120GR","unit":"UNIDADES"},
+{"cat":"PROTEINAS","cod":"PRO015","art":"SOLOMITO X 200G","unit":"UNIDADES"},
+{"cat":"PROTEINAS","cod":"PRO039","art":"FILETE DE POLLO X 180GR","unit":"UNIDADES"},
+{"cat":"VINOS","cod":"VIN010","art":"FINCA LAS MORAS BLACK LABEL MALBEC 750ML","unit":"UNIDADES"},
+{"cat":"VINOS","cod":"VIN048","art":"VINO PICCINI LAMBRUSCO ROSAD 750 ML","unit":"UNIDADES"},
+{"cat":"VINOS","cod":"VIN050","art":"VINO LAS MORAS BLANCO CHARDONAY 750ML","unit":"COPA"},
+{"cat":"VINOS","cod":"VIN053","art":"VINO LAS MORAS ROSADO SYRAH 750ML","unit":"COPA"},
+{"cat":"VINOS","cod":"VIN054","art":"VINO LAS MORAS TINTO CABERNET SAUV 750 ML","unit":"COPA"},
+{"cat":"VINOS","cod":"VIN058","art":"VINO ROSALEDA ROSE 750ML","unit":"COPA"},
+{"cat":"VINOS","cod":"VIN059","art":"VINO ROSALEDA SAUV BLANC 750 ML","unit":"COPA"},
+{"cat":"VINOS","cod":"VIN061","art":"VINO ROSALEDA TINTO MERLOT 750ML","unit":"COPA"},
+{"cat":"VINOS","cod":"VIN078","art":"VINO TARAPACA BLANCO 750ML","unit":"COPA"},
+{"cat":"VINOS","cod":"VIN084","art":"VINO TINTO TARAPACA MERLOT 750 ML","unit":"COPA"},
+{"cat":"VINOS","cod":"VIN091","art":"VEUVE DURAND CHAMPAGNE BRUT RESERVE","unit":"UNIDADES"},
+{"cat":"VINOS","cod":"VIN093","art":"ESPUMANTE CHANDON EXTRA BRUT 750ML","unit":"UNIDADES"},
+{"cat":"MATERIAL DE EMPAQUE","cod":"EMP064","art":"BOLSA ZIPLOC 20X30X100 UND","unit":"UNIDADES"},
+{"cat":"MATERIAL DE EMPAQUE","cod":"EMP068","art":"VASO ECONO TRANSPARENTE X12ONZ X 50UND","unit":"UNIDADES"},
+{"cat":"MATERIAL DE EMPAQUE","cod":"EMP073","art":"SET DE CUBIERTOS TAMI BCO+SER","unit":"UNIDADES"}
+  ]},
+  { name: 'Hot Wings', items: [
+{"cat":"ABARROTES","cod":"ABA002","art":"ACEITE MESTRE OLEO X 3000CC","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA004","art":"ACEITE VEGETAL X 20LT","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA008","art":"AJINOMOTO X KILO","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA010","art":"ALCAPARRA ALFRESCO X 500GR","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA012","art":"ALMIDON CORRIENTE X 1000GR","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA014","art":"ARMONIA TARTUFATA X 500","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA015","art":"ARROZ CASTELLANO X 1KG","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA020","art":"AZUCAR MANUELITA BOLSA X 5LB","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA021","art":"AZUCAR MICROPULVERIZADA X 500G","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA030","art":"CANELA ASTILLAS SAN VALENTIN X500G","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA034","art":"COBERTURA MON BLANCA X 2.5 GR","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA035","art":"COBERTURA NEGRA X 2.5KL LUKER","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA038","art":"COCOA NATURAL 16% X KILO","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA039","art":"COLCAFE GRANULADO CLASICO X500 GR","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA040","art":"COLOR LA GRAN COCINA CIX 500GR","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA045","art":"COMINO MOLIDO X 500GR","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA049","art":"BAGUETTE BRILLO CON CORTE 100GR","unit":"UNIDADES"},
+{"cat":"ABARROTES","cod":"ABA053","art":"ESENCIA DE VAINILLA X500C.C","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA056","art":"GLUCOSA 1130 COLORISA X 700GR","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA060","art":"HARINA DE TRIGO HAZ DE OROS X550g","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA062","art":"HUEVOS AA","unit":"UNIDADES"},
+{"cat":"ABARROTES","cod":"ABA063","art":"MAYONESA FRUCO GALON X3770G","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA072","art":"MIEL DE ABEJA PURA S/ VALENTIN","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA073","art":"MIEL MAPLE BARY X 480G","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA074","art":"MIGA DE PAN PANKO BLANCO X 20 KILOS","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA076","art":"MOSTAZA FRUCO GAL X 4015G","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA078","art":"NACHO TRIANGULAR MAXABOX X 1000 GR","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA082","art":"NUEZ MOSCADA GRA","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA083","art":"TEMPURA KILO","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA089","art":"PAPA DELGADA 9X9 2KG","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA090","art":"PAPRIKA P&I GOURMET FRASCO X 500G","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA095","art":"PASTA DE TOMATE FRUCO X300G","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA097","art":"PIMIENTA NEGRA MOLIDA BADIA 453GR","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA099","art":"POLVO PARA HORNEAR CAROLOSEN X 1000GR","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA100","art":"SAL PARRILLERA REFISALSALSERO X 454G","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA101","art":"SAL REFISAL X 1000G","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA103","art":"SALSA DE AJI ADEREZOS X 1050G","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA105","art":"SALSA DE SOYA X 20 LITROS","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA106","art":"SALSA DE TOMATE FRUCO GX 4350G","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA109","art":"SALSA INGLESA ADEREZOS PET X 1070 G","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA115","art":"SRIRACHA HOT CHILLI SAUCE x 482ML","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA120","art":"TORTILLA DE MAIZ X 20UND","unit":"UNIDADES"},
+{"cat":"ABARROTES","cod":"ABA122","art":"VINAGRE BALSAMICO LA CURANA X 1000 ML","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA123","art":"VINAGRE BLANCO FRUCO X 3060ML","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA126","art":"CEREZA MARRASCHINO ALFAFRAS X 1000G","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA164","art":"MENTAS 50UND COLOMBINA","unit":"UNIDADES"},
+{"cat":"ABARROTES","cod":"ABA175","art":"ALMIDON EXTRA ROSQUILLERO X1000 GR","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA177","art":"AJO EN POLVO P&L GOURMET FRASCO X500G","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA178","art":"CEBOLLA EN POLVO BADIA x500G","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA179","art":"POLVO DE BIZCOCHO MAMA INES 250 GR","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA180","art":"SALSA BBQ 1L (BASE COOK)","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA181","art":"JALAPENOS CON QUESO CHEDDAR x 1.13KG","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA183","art":"MARACUYA DULCE 4L","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA187","art":"PEPINILLOS AGRIDULCE ENTE ALFRESCO X500G","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA198","art":"AZUCAR MANUELITA MORENA BS X 5LB","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA201","art":"SALSA MIEL MOSTAZA 4L","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA204","art":"MOSTAZA CLASICA ANTIGDIJOSHACIE FRAS X380G","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA205","art":"JALAPENOS ENCURTIDOS","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA213","art":"STAR ANISE THAI X113GR","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA218","art":"PAN CUBANO PBT 90GR","unit":"UNIDADES"},
+{"cat":"ABARROTES","cod":"ABA220","art":"GALLETA OREO MEDIANA TRITURADA X4KG","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA268","art":"LATA CHILE CON CARNE LATA 300G","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA273","art":"TORTILLA DE MAIZ UND","unit":"UNIDADES"},
+{"cat":"ABARROTES","cod":"ABA277","art":"GALLETA SULTANA 225g","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA286","art":"BARQUILLO PIAZA DE CHOCOLATE/VAINILLA","unit":"UNIDADES"},
+{"cat":"ABARROTES","cod":"ABA292","art":"SALSA DE FRUTOS ROJOS DULCE (1.230G)","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA293","art":"ACEITUNA VERDE DESHUESADA 330GR","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA297","art":"SALSA HOISIN LKK USA 6X5 LBS","unit":"UNIDADES"},
+{"cat":"ABARROTES","cod":"ABA298","art":"MAYONESA ALASENA X475G","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA300","art":"PASTA CODOS LA MUNECA x250G","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA301","art":"ALMIDON DE PAPA X KILO","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA303","art":"VINAGRE DE MANZANA X LITRO","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"VIN067","art":"VINO BLANCO CAVIC TETRAPACK X 1LT","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"VIN068","art":"VINO TINTO CAVIC TETRAPACK X 1LT","unit":"GRAMOS"},
+{"cat":"AGUA Y TE","cod":"GAS007","art":"MANANTIAL CON GAS VIDRIO 300ML","unit":"UNIDADES"},
+{"cat":"AGUA Y TE","cod":"GAS008","art":"MANANTIAL SIN GAS 500ML","unit":"UNIDADES"},
+{"cat":"AGUA Y TE","cod":"GAS036","art":"TE HATSU AMARILLO 400X6","unit":"UNIDADES"},
+{"cat":"AGUA Y TE","cod":"GAS037","art":"TE HATSU AZUL 400ML X 6","unit":"UNIDADES"},
+{"cat":"AGUA Y TE","cod":"GAS038","art":"TE HATSU BLANCO 400ML X6","unit":"UNIDADES"},
+{"cat":"AGUA Y TE","cod":"GAS039","art":"TE HATSU LILA 400ML X6","unit":"UNIDADES"},
+{"cat":"AGUA Y TE","cod":"GAS040","art":"TE HATSU NEGRO 400ML X6","unit":"UNIDADES"},
+{"cat":"AGUA Y TE","cod":"GAS041","art":"TE HATSU ROJO 400X6","unit":"UNIDADES"},
+{"cat":"AGUA Y TE","cod":"GAS042","art":"TE HATSU ROSAS 400ML X6","unit":"UNIDADES"},
+{"cat":"AGUA Y TE","cod":"GAS051","art":"TE HATSU ROSADO SIX400X6","unit":"UNIDADES"},
+{"cat":"AGUA Y TE","cod":"GAS054","art":"AGUA HATSU X 6UND","unit":"UNIDADES"},
+{"cat":"CERVEZAS","cod":"CER001","art":"CERVEZA AGUILA LIGHT RETORNABLE 330CC","unit":"UNIDADES"},
+{"cat":"CERVEZAS","cod":"CER003","art":"CERVEZA AGUILA RETORNABLE 330CC","unit":"UNIDADES"},
+{"cat":"CERVEZAS","cod":"CER004","art":"CERVEZA CLUB COL DORADA RETORNABLE 330CC","unit":"UNIDADES"},
+{"cat":"CERVEZAS","cod":"CER006","art":"CERVEZA CLUB COL ROJA RETORNABLE 330 CC","unit":"UNIDADES"},
+{"cat":"CERVEZAS","cod":"CER009","art":"CERVEZA CORONA NRB SIXPACK X 330ML","unit":"UNIDADES"},
+{"cat":"CERVEZAS","cod":"CER010","art":"CERVEZA HEINIKEN BOT.NR 330 6X4","unit":"UNIDADES"},
+{"cat":"CERVEZAS","cod":"CER011","art":"CERVEZA HEINEKEN 6U 250ML BOTELLA","unit":"UNIDADES"},
+{"cat":"CERVEZAS","cod":"CER012","art":"CERVEZA STELLA ARTOIS SIXPACK NR 330 MEX","unit":"UNIDADES"},
+{"cat":"CERVEZAS","cod":"CER016","art":"CERVEZA PILSEN NEGRA COCINA","unit":"UNIDADES"},
+{"cat":"CERVEZAS","cod":"CER017","art":"BARRIL CERVEZA AMERICA SEASON IPA","unit":"GRAMOS"},
+{"cat":"CERVEZAS","cod":"CER018","art":"BARRIL CERVEZA SAN JUANERA FRUTOS ROJO","unit":"GRAMOS"},
+{"cat":"CERVEZAS","cod":"CER019","art":"BARRIL CERVEZA AMERICA LAGER","unit":"GRAMOS"},
+{"cat":"CERVEZAS","cod":"CER020","art":"BARRIL CERVEZA DARK LAGER","unit":"GRAMOS"},
+{"cat":"CERVEZAS","cod":"CER021","art":"BARRIL CERVEZA STOUT NEGRA 20LM","unit":"GRAMOS"},
+{"cat":"CERVEZAS","cod":"CER022","art":"BARRIL CERVEZA AMERICA APA BARRIL X 20LT","unit":"GRAMOS"},
+{"cat":"CERVEZAS","cod":"CER023","art":"BARRIL CERVEZA IRISH RED ALE 20L","unit":"GRAMOS"},
+{"cat":"CERVEZAS","cod":"CER024","art":"BARRIL CERVEZA IPA REGULAR X20L","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"FRU001","art":"AGUACATE CHOCKETTE X KILO","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"FRU003","art":"AJI AMARILLO X KILO","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"FRU005","art":"AJI DULCE X KILO","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"FRU006","art":"AJI CAROLINA RAPPER X KILO","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"FRU007","art":"AJI ROCOTO X KILO","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"FRU008","art":"AJO LIMPIO X KILO","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"FRU009","art":"ALBAHACA X KILO","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"FRU012","art":"ARVEJA DESGRANADA X KILO","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"FRU017","art":"BROTES DE RABANO 50","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"FRU018","art":"CAMOTE X KILO","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"FRU020","art":"CEBOLLA BLANCA LIMPIA X KILO","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"FRU021","art":"CEBOLLA MORADA LIMPIA","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"FRU022","art":"CEBOLLA PUERRO X KILO","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"FRU023","art":"CEBOLLA RAMA LIMPIA X KILO","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"FRU025","art":"CHAMPIÑON X KILO","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"FRU026","art":"CHAMPIÑON ORELLANA X KILO","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"FRU028","art":"CILANTRO LIMPIO X KILO","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"FRU029","art":"COCO X KILO","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"FRU035","art":"FRESA JUMBO I X KILO","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"FRU038","art":"HIERBA BUENA X 500 KILO","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"FRU039","art":"JALAPEÑO X KILO","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"FRU040","art":"JENGIBRE X KILO","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"FRU041","art":"LAUREL X KILO","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"FRU042","art":"LIMON MANDARINO X KILO","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"FRU043","art":"LIMON TAHITI X KILO","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"FRU046","art":"MANDARINA X KILO","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"FRU049","art":"PEPINO EUROPEO X KILO","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"FRU051","art":"MAZORCA SIN CAPACHO X KILO","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"FRU053","art":"AJI PANCA X KILO","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"FRU054","art":"MORA X KILO","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"FRU057","art":"UCHUVA SIN CAPACHO","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"FRU058","art":"OREGANO X 500GR","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"FRU061","art":"REPOLLO MORADO X KILO","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"FRU062","art":"PAPA CRIOLLA BALIN O CHIRIYA","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"FRU063","art":"PAPA NEVADA X KILO","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"FRU065","art":"PEPINO COHOMBRO X KILO","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"FRU067","art":"PEREJIL CRESPO X KILO","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"FRU069","art":"PIMENTON X KILO","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"FRU075","art":"ROMERO X KILO","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"FRU077","art":"TOMATE CHERRY X KILO","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"FRU078","art":"TOMATE CHONTO X KILO","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"FRU081","art":"TOMILLO X KILO","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"FRU084","art":"MENTA X KILO","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"FRU086","art":"ZANAHORIA TRONCO X KILO","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"FRU087","art":"AGUACATE HASS X KILO","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"FRU097","art":"CHILE ANCHO X KILO","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"FRU098","art":"LECHUGA ROMANA 250G","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"FRU099","art":"COGOLLO EUROPEO 250","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"FRU101","art":"REPOLLO BLANCO KILO","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"FRU102","art":"CHILE GUAJILLO X KILO","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"FRU103","art":"CHILE MORITA X KILO","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"FRU104","art":"ESPARRAGO KILO","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"FRU105","art":"CEBOLLIN KILO","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"FRU110","art":"AJI LIMO X KILO","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"FRU112","art":"LECHUGA CRESPA KILO","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"FRU122","art":"TOMATE RINON POR KILO","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"ORD075","art":"APIO X KILO","unit":"GRAMOS"},
+{"cat":"GASEOSAS Y SODAS","cod":"GAS002","art":"BRISA PLAIN 280ML PET 24","unit":"UNIDADES"},
+{"cat":"GASEOSAS Y SODAS","cod":"GAS003","art":"COCA COLA 400ML PET (12)","unit":"UNIDADES"},
+{"cat":"GASEOSAS Y SODAS","cod":"GAS005","art":"AGUA TONICA TRADICIONAL JUNIPER X200ML","unit":"UNIDADES"},
+{"cat":"GASEOSAS Y SODAS","cod":"GAS010","art":"COLOMBIANA NACIONAL 400 ML PET X 15","unit":"UNIDADES"},
+{"cat":"GASEOSAS Y SODAS","cod":"GAS011","art":"CIDRA DE ROSAS JUNIPER X 207ML","unit":"UNIDADES"},
+{"cat":"GASEOSAS Y SODAS","cod":"GAS013","art":"COCA COLA 10 OZ VIDRIO","unit":"UNIDADES"},
+{"cat":"GASEOSAS Y SODAS","cod":"GAS014","art":"COCA COLA S/AZ 10 OZ","unit":"UNIDADES"},
+{"cat":"GASEOSAS Y SODAS","cod":"GAS015","art":"COCONUT JUNIPER X 207 MIL","unit":"UNIDADES"},
+{"cat":"GASEOSAS Y SODAS","cod":"GAS018","art":"GINGER BEER SIN LICOR JUNIPER X 200ML","unit":"UNIDADES"},
+{"cat":"GASEOSAS Y SODAS","cod":"GAS022","art":"JUNIPER TORONJA X207ML","unit":"UNIDADES"},
+{"cat":"GASEOSAS Y SODAS","cod":"GAS029","art":"SCHEEPPES SODA 10 OZ","unit":"UNIDADES"},
+{"cat":"GASEOSAS Y SODAS","cod":"GAS030","art":"GINGER ALE BOTELLA 300ML SCHWEPPES","unit":"UNIDADES"},
+{"cat":"GASEOSAS Y SODAS","cod":"GAS049","art":"JUNIPER DE DURAZNO 207ML","unit":"UNIDADES"},
+{"cat":"GASEOSAS Y SODAS","cod":"GAS053","art":"SODA HATSU X6 UND","unit":"UNIDADES"},
+{"cat":"INSUMOS BAR","cod":"ABA018","art":"NECTAR DE AGAVE ORGANICO 1.25 KG","unit":"GRAMOS"},
+{"cat":"INSUMOS BAR","cod":"ABA022","art":"AZUCAR SOBRES MANUELITA X200S X 5G","unit":"UNIDADES"},
+{"cat":"INSUMOS BAR","cod":"ABA032","art":"CARDAMOMO ORO X500GR (PELADO)","unit":"GRAMOS"},
+{"cat":"INSUMOS BAR","cod":"ABA033","art":"CLAVOS DE OLOR X125GR","unit":"GRAMOS"},
+{"cat":"INSUMOS BAR","cod":"ABA048","art":"CREMA DE COCO ROLAND X 960 GR","unit":"GRAMOS"},
+{"cat":"INSUMOS BAR","cod":"ABA058","art":"GOTAS AMARGAS BITTER ANGOSTURA 150G","unit":"GRAMOS"},
+{"cat":"INSUMOS BAR","cod":"ABA068","art":"SALSA WORCESTERSHIRE O PERRINS 592 ML","unit":"GRAMOS"},
+{"cat":"INSUMOS BAR","cod":"ABA108","art":"SALSA EN POLVO TAJIN CLASICO X 142G","unit":"GRAMOS"},
+{"cat":"INSUMOS BAR","cod":"ABA121","art":"CAFE VENETO SELECT PEPA X 2.5 KG","unit":"GRAMOS"},
+{"cat":"INSUMOS BAR","cod":"ABA125","art":"FRESH CITRUS 1.5LT PET (12)","unit":"GRAMOS"},
+{"cat":"INSUMOS BAR","cod":"ABA127","art":"TABASCO PEPPER SAUCE 150ML","unit":"GRAMOS"},
+{"cat":"INSUMOS BAR","cod":"ABA128","art":"CLAMATO COCTEL DE TOMATE 946","unit":"GRAMOS"},
+{"cat":"INSUMOS BAR","cod":"ABA131","art":"LYCHEE SAN VALENTIN 567G DREN 225G","unit":"GRAMOS"},
+{"cat":"INSUMOS BAR","cod":"ABA135","art":"PULPA DE COCO X UNIDAD","unit":"UNIDADES"},
+{"cat":"INSUMOS BAR","cod":"ABA136","art":"PULPA DE FRUTOS DE ARANDANOS 10UND","unit":"UNIDADES"},
+{"cat":"INSUMOS BAR","cod":"ABA137","art":"PULPA MANGO 1000 GR","unit":"UNIDADES"},
+{"cat":"INSUMOS BAR","cod":"ABA157","art":"PULPA MANGO BICHE 1200GR","unit":"UNIDADES"},
+{"cat":"INSUMOS BAR","cod":"ABA159","art":"SALSA DE CHOCOLATE HERSHEYS X1360GR","unit":"GRAMOS"},
+{"cat":"INSUMOS BAR","cod":"ABA170","art":"SUGG SYRUP VAINILLA CHOCOANA VIDRIO X750ML","unit":"ONZA"},
+{"cat":"INSUMOS BAR","cod":"ABA172","art":"SUGG SYRUP LYCHE VIDRIO X750ML","unit":"ONZA"},
+{"cat":"INSUMOS BAR","cod":"ABA173","art":"JUGO DE ARANDANOS YUS PET 945 ML","unit":"ONZA"},
+{"cat":"INSUMOS BAR","cod":"ABA174","art":"MANDARINA PAQUETE X 7 UNIDADES","unit":"UNIDADES"},
+{"cat":"INSUMOS BAR","cod":"ABA285","art":"LEMONCHELLO","unit":"ONZA"},
+{"cat":"INSUMOS BAR","cod":"FRU015","art":"BANDEJA UVA ISABELLA X KILO","unit":"GRAMOS"},
+{"cat":"INSUMOS BAR","cod":"FRU033","art":"FLOR DE JAMAICA X KILO","unit":"GRAMOS"},
+{"cat":"INSUMOS BAR","cod":"FRU050","art":"MARACUYA X KILO","unit":"GRAMOS"},
+{"cat":"INSUMOS BAR","cod":"FRU056","art":"NARANJA VALENCIA X KILO","unit":"GRAMOS"},
+{"cat":"INSUMOS BAR","cod":"FRU070","art":"PINA ORO MIEL X KILO","unit":"GRAMOS"},
+{"cat":"INSUMOS BAR","cod":"FRU082","art":"TORONJA X KILO","unit":"GRAMOS"},
+{"cat":"INSUMOS BAR","cod":"FRU091","art":"LIMON TAHITI KILO BAR","unit":"GRAMOS"},
+{"cat":"INSUMOS BAR","cod":"FRU092","art":"HIERBABUENA KILO BAR","unit":"GRAMOS"},
+{"cat":"INSUMOS BAR","cod":"FRU093","art":"FRESA JUMBO KILO BAR","unit":"GRAMOS"},
+{"cat":"INSUMOS BAR","cod":"FRU094","art":"MANZANA VERDE BAR X KILO","unit":"GRAMOS"},
+{"cat":"INSUMOS BAR","cod":"FRU096","art":"MANGO TOMMY KILO BAR","unit":"GRAMOS"},
+{"cat":"INSUMOS BAR","cod":"FRU115","art":"CURUBA KILO","unit":"GRAMOS"},
+{"cat":"INSUMOS BAR","cod":"FRU120","art":"GULUPA X KILO","unit":"GRAMOS"},
+{"cat":"INSUMOS BAR","cod":"INB002","art":"SUGG DE CAFE X 750 ML","unit":"ONZA"},
+{"cat":"INSUMOS BAR","cod":"INB003","art":"ACEITE DE COCO VEGETAL","unit":"GRAMOS"},
+{"cat":"INSUMOS BAR","cod":"INB005","art":"ACIDO CITRICO 500GR","unit":"GRAMOS"},
+{"cat":"INSUMOS BAR","cod":"INB006","art":"ACIDO ASCORBICO 500GR","unit":"GRAMOS"},
+{"cat":"INSUMOS BAR","cod":"INB008","art":"ACIDO MALICO 500GR","unit":"GRAMOS"},
+{"cat":"INSUMOS BAR","cod":"INB010","art":"BASE COCTEL STRAWBERRY PUREE FINEST 1000","unit":"GRAMOS"},
+{"cat":"INSUMOS BAR","cod":"INB011","art":"GOTAS AMARGAS ANGOSTURA COCOA BITTERS 100ML","unit":"GRAMOS"},
+{"cat":"INSUMOS BAR","cod":"INB012","art":"GOTAS AMARGAS ANGOSTURA COCOA BITTERS 100ML BOT","unit":"GRAMOS"},
+{"cat":"INSUMOS BAR","cod":"LAC028","art":"LECHE UHT DESLACTOSADA BOLSA X 1000ML","unit":"GRAMOS"},
+{"cat":"LACTEOS","cod":"LAC001","art":"AREQUIPE ALPINA INSTITUCIONAL 5KG","unit":"GRAMOS"},
+{"cat":"LACTEOS","cod":"LAC003","art":"QUESO TAJADO AMERICANO 160 LONJAS BLOQUE X 2.27 KG","unit":"GRAMOS"},
+{"cat":"LACTEOS","cod":"LAC004","art":"CREMA DE LECHE X 9700G","unit":"GRAMOS"},
+{"cat":"LACTEOS","cod":"LAC009","art":"CAJA 10 LT VAINILLA POP CREM","unit":"GRAMOS"},
+{"cat":"LACTEOS","cod":"LAC011","art":"LECHE UHT ENTERA BOLSA X 1000ML","unit":"GRAMOS"},
+{"cat":"LACTEOS","cod":"LAC013","art":"MANTEQUILLA FRESCA BATIDA X KILO","unit":"GRAMOS"},
+{"cat":"LACTEOS","cod":"LAC014","art":"QUESO ALPINA AZUL BLQ 8 LBS APROX","unit":"GRAMOS"},
+{"cat":"LACTEOS","cod":"LAC016","art":"QUESO ALPINA PARMESANO RAYADO 2.5 L","unit":"GRAMOS"},
+{"cat":"LACTEOS","cod":"LAC019","art":"QUESO COSTENO BLOQUE 2.5K","unit":"GRAMOS"},
+{"cat":"LACTEOS","cod":"LAC020","art":"QUESO CREMA GRANEL X 4K","unit":"GRAMOS"},
+{"cat":"LACTEOS","cod":"LAC022","art":"QUESO MOZZARELLA BLOQUE X 2.5K","unit":"GRAMOS"},
+{"cat":"LACTEOS","cod":"LAC025","art":"QUESO PHILADELPHIA KRAFT 190GR","unit":"GRAMOS"},
+{"cat":"LACTEOS","cod":"LAC026","art":"MARGARINA SELLAPAN X 15 KILOS","unit":"GRAMOS"},
+{"cat":"LACTEOS","cod":"LAC027","art":"QUESO PARMESSANO EN CUNA 1K","unit":"GRAMOS"},
+{"cat":"LACTEOS","cod":"LAC031","art":"CREMA DE AGRIA X400G","unit":"GRAMOS"},
+{"cat":"LACTEOS","cod":"LAC034","art":"ADEREZO QUESO CHEDDAR X 1L","unit":"GRAMOS"},
+{"cat":"LICORES","cod":"LIC001","art":"ABSOLUT 700 ML","unit":"ONZA"},
+{"cat":"LICORES","cod":"LIC002","art":"AGUARDIENTE ANTIOQUENO AZUL 375ML","unit":"UNIDADES"},
+{"cat":"LICORES","cod":"LIC003","art":"AGUARDIENTE ANTIOQUENO AZUL 750ML","unit":"ONZA"},
+{"cat":"LICORES","cod":"LIC007","art":"TEQUILA JOSE CUERVO SILVER X750 ML","unit":"ONZA"},
+{"cat":"LICORES","cod":"LIC009","art":"APEROL X 750ML","unit":"ONZA"},
+{"cat":"LICORES","cod":"LIC015","art":"BUCHANANS 18 ANOS 750ML","unit":"ONZA"},
+{"cat":"LICORES","cod":"LIC017","art":"BUCHANANS DELUXE AGED 12 YEARS 0.750L","unit":"ONZA"},
+{"cat":"LICORES","cod":"LIC018","art":"BUCHANANS MASTER 0.75L","unit":"ONZA"},
+{"cat":"LICORES","cod":"LIC021","art":"BULLEIT BOURBON 0.75L","unit":"ONZA"},
+{"cat":"LICORES","cod":"LIC022","art":"CAMPARI 750","unit":"ONZA"},
+{"cat":"LICORES","cod":"LIC027","art":"DON JULIO 70 700ML","unit":"ONZA"},
+{"cat":"LICORES","cod":"LIC028","art":"DON JULIO ANEJO X700ML","unit":"ONZA"},
+{"cat":"LICORES","cod":"LIC029","art":"DON JULIO REPOSADO 700ML","unit":"ONZA"},
+{"cat":"LICORES","cod":"LIC031","art":"GINEBRA HENDRICKS 750CC","unit":"ONZA"},
+{"cat":"LICORES","cod":"LIC038","art":"MEZCAL 400 CONEJOS JOVEN SPADIN 750 ML","unit":"ONZA"},
+{"cat":"LICORES","cod":"LIC041","art":"PISCO BARSOL QUEBRANTA 4000L","unit":"ONZA"},
+{"cat":"LICORES","cod":"LIC042","art":"DON JULIO BLANCO 0.70L","unit":"ONZA"},
+{"cat":"LICORES","cod":"LIC043","art":"RON BACARDI CARTA BLANCA SUPERIOR 980 ML","unit":"ONZA"},
+{"cat":"LICORES","cod":"LIC045","art":"AGUARDIENTE ANTIOQUENO ROJO 750ML","unit":"ONZA"},
+{"cat":"LICORES","cod":"LIC049","art":"RON MEDELLIN 3 ANOS 750ML","unit":"ONZA"},
+{"cat":"LICORES","cod":"LIC051","art":"RON MEDELLIN 8 ANOS 750ML","unit":"ONZA"},
+{"cat":"LICORES","cod":"LIC057","art":"RON VIEJO DE CALDAS 3 ANOS 750 ML","unit":"ONZA"},
+{"cat":"LICORES","cod":"LIC063","art":"GINEBRA SELVA X700ML","unit":"ONZA"},
+{"cat":"LICORES","cod":"LIC065","art":"TANQUERAY LONDON DRY GIN 0.70L","unit":"ONZA"},
+{"cat":"LICORES","cod":"LIC066","art":"VODKA BARTENDER 700ML","unit":"ONZA"},
+{"cat":"LICORES","cod":"LIC081","art":"WHISKY JACK DANIELS 700 APPLE 700","unit":"ONZA"},
+{"cat":"LICORES","cod":"LIC082","art":"TEQUILA PATRON SILVER 700","unit":"ONZA"},
+{"cat":"LICORES","cod":"LIC083","art":"MARTINI VERMUTH ROSSO 750ML","unit":"ONZA"},
+{"cat":"LICORES","cod":"LIC085","art":"PISCO BARSOL ACHOLADO 750ML","unit":"ONZA"},
+{"cat":"LICORES","cod":"LIC088","art":"VODKA SKYY 750ML","unit":"ONZA"},
+{"cat":"LICORES","cod":"LIC091","art":"WHISKY OLD PARR 12 ANOS 750 ML","unit":"ONZA"},
+{"cat":"LICORES","cod":"LIC092","art":"WHISKY MACALLAN 12 ANOS 700","unit":"ONZA"},
+{"cat":"LICORES","cod":"LIC106","art":"JACK DANIEL'S OLD NO. 7","unit":"ONZA"},
+{"cat":"LICORES","cod":"LIC107","art":"WHISKEY JACK DANIELS HONEY 700CC","unit":"ONZA"},
+{"cat":"LICORES","cod":"LIC108","art":"JAGERMEISTER - JAGER 750ML","unit":"ONZA"},
+{"cat":"LICORES","cod":"LIC109","art":"FRANGELICO HAZELNUT LIQUER 750ML","unit":"ONZA"},
+{"cat":"LICORES","cod":"LIC110","art":"WHISKY JACK DANIEL'S FIRE 700ML","unit":"ONZA"},
+{"cat":"LICORES","cod":"LIC111","art":"AMATORE AMARETTO 750ML","unit":"ONZA"},
+{"cat":"LICORES","cod":"LIC119","art":"RON CARBON 750ML","unit":"ONZA"},
+{"cat":"PROTEINAS","cod":"PRO002","art":"CARNE MOLIDA X KILO","unit":"GRAMOS"},
+{"cat":"PROTEINAS","cod":"PRO005","art":"COSTILLA X UND 500GR","unit":"UNIDADES"},
+{"cat":"PROTEINAS","cod":"PRO008","art":"POSTA DE RES UND X","unit":"UNIDADES"},
+{"cat":"PROTEINAS","cod":"PRO009","art":"MUCHACHO X KILO","unit":"GRAMOS"},
+{"cat":"PROTEINAS","cod":"PRO011","art":"SOLOMITO X 180G","unit":"UNIDADES"},
+{"cat":"PROTEINAS","cod":"PRO013","art":"PECHUGA DE POLLO DESHUESADO X1000","unit":"GRAMOS"},
+{"cat":"PROTEINAS","cod":"PRO014","art":"TOCINETA PREMIUM X KILO","unit":"GRAMOS"},
+{"cat":"PROTEINAS","cod":"PRO016","art":"CONTRA MUSLOS DESHUESADO CON PIEL x1KL","unit":"GRAMOS"},
+{"cat":"PROTEINAS","cod":"PRO019","art":"ALAS x KILO","unit":"GRAMOS"},
+{"cat":"PROTEINAS","cod":"PRO025","art":"AGUJA DE RES X KILO","unit":"GRAMOS"},
+{"cat":"PROTEINAS","cod":"PRO029","art":"BIG BOGGER X10UND","unit":"UNIDADES"},
+{"cat":"PROTEINAS","cod":"PRO030","art":"CARNE REFRIGERADA WINGS X UNIDAD","unit":"UNIDADES"},
+{"cat":"PROTEINAS","cod":"PRO032","art":"ENTRECOT UND 250G","unit":"UNIDADES"},
+{"cat":"PROTEINAS","cod":"PRO040","art":"PECHO DE RES X KILO","unit":"GRAMOS"},
+{"cat":"PESCADOS Y MARISCOS","cod":"ABA184","art":"ANCHOAS X50GR","unit":"GRAMOS"},
+{"cat":"PESCADOS Y MARISCOS","cod":"PM011","art":"FILETE DE SALMON X 180GN","unit":"UNIDADES"},
+{"cat":"PESCADOS Y MARISCOS","cod":"PM012","art":"FILETE DE TILAPIA FRESCA","unit":"GRAMOS"},
+{"cat":"VINOS","cod":"VIN048","art":"VINO PICCINI LAMBRUSCO ROSAD 750 ML","unit":"UNIDADES"},
+{"cat":"VINOS","cod":"VIN056","art":"VINO PICCINI LAMBRUS TTO REGNO DOC 750 ML","unit":"UNIDADES"},
+{"cat":"VINOS","cod":"VIN059","art":"VINO ROSALEDA SAUV BLANC 750 ML","unit":"COPA"},
+{"cat":"VINOS","cod":"VIN061","art":"VINO ROSALEDA TINTO MERLOT 750ML","unit":"COPA"}
+  ]},
+  { name: 'Malanga', items: [
+{"cat":"ABARROTES","cod":"ABA001","art":"ACEITE DE AJONJOLI KADOYA X 1.62LT","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA002","art":"ACEITE MESTRE OLEO X 3000CC","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA003","art":"ACEITE TRUFADO","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA004","art":"ACEITE VEGETAL X 20LT","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA006","art":"ACHIOTE EN GRANO 1000","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA008","art":"AJINOMOTO X KILO","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA009","art":"AJONJOLI NEGRO X 500GR","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA010","art":"ALCAPARRA ALFRESCO X 500GR","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA014","art":"ARMONIA TARTUFATA X 500","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA015","art":"ARROZ CASTELLANO X 1KG","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA016","art":"ARROZ ARBOREO COLAVITA X 1 KG","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA020","art":"AZUCAR MANUELITA BOLSA X 5LB","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA025","art":"BBQ BOLSA 5000G BARY CJ","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA026","art":"BICARBONATO LA GRAN COCINA x500G","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA027","art":"BOCADILLO DE GUAYABA X150G46","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA030","art":"CANELA ASTILLAS SAN VALENTIN X500G","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA034","art":"COBERTURA MON BLANCA X 2.5 GR","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA035","art":"COBERTURA NEGRA X 2.5KL LUKER","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA037","art":"COCO RALLADO NRO1 IPRODESA","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA038","art":"COCOA NATURAL 16% X KILO","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA039","art":"COLCAFE GRANULADO CLASICO X500 GR","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA041","art":"COLORANTE GEL AMARILLO X 60 ML","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA042","art":"COLORANTE GEL ROJO X 60 ML","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA043","art":"BRIOCHE TORPEADO MOLDE BRILLO 600 GR","unit":"UNIDADES"},
+{"cat":"ABARROTES","cod":"ABA045","art":"COMINO MOLIDO X 500GR","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA049","art":"BAGUETTE BRILLO CON CORTE 100GR","unit":"UNIDADES"},
+{"cat":"ABARROTES","cod":"ABA050","art":"DURAZNO EN MITAD DISPRONNAT X 820G","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA053","art":"ESENCIA DE VAINILLA X500C.C","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA054","art":"FETUHINI MONTICELLO X 500G","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA055","art":"GELATINA SIN SABOR X30G","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA056","art":"GLUCOSA 1130 COLORISA X 700GR","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA060","art":"HARINA DE TRIGO HAZ DE OROS X550g","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA061","art":"HARINA PAN BLANCA X 1KG","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA062","art":"HUEVOS AA","unit":"UNIDADES"},
+{"cat":"ABARROTES","cod":"ABA063","art":"MAYONESA FRUCO GALON X3770G","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA064","art":"LECITINA DE SOYA X 200GR","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA067","art":"MASMELO FIRESIDE X 1000GR","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA072","art":"MIEL DE ABEJA PURA S/ VALENTIN","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA073","art":"MIEL MAPLE BARY X 480G","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA074","art":"MIGA DE PAN PANKO BLANCO X 20 KILOS","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA076","art":"MOSTAZA FRUCO GAL X 4015G","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA078","art":"NACHO TRIANGULAR MAXABOX X 1000 GR","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA082","art":"NUEZ MOSCADA GRA","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA083","art":"TEMPURA KILO","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA089","art":"PAPA DELGADA 9X9 2KG","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA090","art":"PAPRIKA P&I GOURMET FRASCO X 500G","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA093","art":"CHOCOLATE LUKER X500G","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA094","art":"PISTACHOS SALADOS 706 NUTOS","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA095","art":"PASTA DE TOMATE FRUCO X300G","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA097","art":"PIMIENTA NEGRA MOLIDA BADIA 453GR","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA098","art":"PIMIENTA ROSADA EN GRANO X250G","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA099","art":"POLVO PARA HORNEAR CAROLOSEN X 1000GR","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA101","art":"SAL REFISAL X 1000G","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA104","art":"SALSA DE HUMO INNOVAL X 1000","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA105","art":"SALSA DE SOYA X 20 LITROS","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA106","art":"SALSA DE TOMATE FRUCO GX 4350G","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA109","art":"SALSA INGLESA ADEREZOS PET X 1070 G","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA114","art":"SPRING ROLL WEI CHUAN X 25 WRAPS","unit":"UNIDADES"},
+{"cat":"ABARROTES","cod":"ABA115","art":"SRIRACHA HOT CHILLI SAUCE x 482ML","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA118","art":"TOGARASHI HACHI 300 GR","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA119","art":"TOMATES SECOS","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA120","art":"TORTILLA DE MAIZ X 20UND","unit":"UNIDADES"},
+{"cat":"ABARROTES","cod":"ABA122","art":"VINAGRE BALSAMICO LA CURANA X 1000 ML","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA123","art":"VINAGRE BLANCO FRUCO X 3060ML","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA124","art":"WHIP TOPPING X 1 KL","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA126","art":"CEREZA MARRASCHINO ALFAFRAS X 1000G","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA132","art":"MAIZ EN GRANO MCCAIN X 1KG","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA144","art":"HONDASHI 1KG","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA164","art":"MENTAS 50UND COLOMBINA","unit":"UNIDADES"},
+{"cat":"ABARROTES","cod":"ABA165","art":"MAIZ TIERNO METOO VACUM X 340G","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA166","art":"AJONJOLI BLANCO TOSTADO 500G","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA175","art":"ALMIDON EXTRA ROSQUILLERO X1000 GR","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA189","art":"PANELA REG. SAN VALENTIN X PAR","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA196","art":"ACEITE DE OLIVA VIR EXTRA GRAN ABRIL PX1L","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA213","art":"STAR ANISE THAI X113GR","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA255","art":"NUEZ PECANA X 907 GR","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA257","art":"MAIZENA (FECULA DE MAIZ) X KILO","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA280","art":"SYRUP COCO KANALO 1000ML","unit":"ONZA"},
+{"cat":"ABARROTES","cod":"ABA281","art":"ROJO ESCARLATA CAROL TARO X 500G","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA293","art":"ACEITUNA VERDE DESHUESADA 330GR","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"ABA298","art":"MAYONESA ALASENA X475G","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"VIN067","art":"VINO BLANCO CAVIC TETRAPACK X 1LT","unit":"GRAMOS"},
+{"cat":"ABARROTES","cod":"VIN068","art":"VINO TINTO CAVIC TETRAPACK X 1LT","unit":"GRAMOS"},
+{"cat":"AGUA Y TE","cod":"GAS001","art":"ACQUA PANNA VIDRIO 505 ML","unit":"UNIDADES"},
+{"cat":"AGUA Y TE","cod":"GAS004","art":"AGUA S. PELLEGRINO VIDRIO 505ML","unit":"UNIDADES"},
+{"cat":"AGUA Y TE","cod":"GAS007","art":"MANANTIAL CON GAS VIDRIO 300ML","unit":"UNIDADES"},
+{"cat":"AGUA Y TE","cod":"GAS008","art":"MANANTIAL SIN GAS 500ML","unit":"UNIDADES"},
+{"cat":"AGUA Y TE","cod":"GAS036","art":"TE HATSU AMARILLO 400X6","unit":"UNIDADES"},
+{"cat":"AGUA Y TE","cod":"GAS037","art":"TE HATSU AZUL 400ML X 6","unit":"UNIDADES"},
+{"cat":"AGUA Y TE","cod":"GAS038","art":"TE HATSU BLANCO 400ML X6","unit":"UNIDADES"},
+{"cat":"AGUA Y TE","cod":"GAS039","art":"TE HATSU LILA 400ML X6","unit":"UNIDADES"},
+{"cat":"AGUA Y TE","cod":"GAS040","art":"TE HATSU NEGRO 400ML X6","unit":"UNIDADES"},
+{"cat":"AGUA Y TE","cod":"GAS041","art":"TE HATSU ROJO 400X6","unit":"UNIDADES"},
+{"cat":"AGUA Y TE","cod":"GAS042","art":"TE HATSU ROSAS 400ML X6","unit":"UNIDADES"},
+{"cat":"AGUA Y TE","cod":"GAS051","art":"TE HATSU ROSADO SIX400X6","unit":"UNIDADES"},
+{"cat":"AGUA Y TE","cod":"GAS054","art":"AGUA HATSU X 6UND","unit":"UNIDADES"},
+{"cat":"CERVEZAS","cod":"CER001","art":"CERVEZA AGUILA LIGHT RETORNABLE 330CC","unit":"UNIDADES"},
+{"cat":"CERVEZAS","cod":"CER003","art":"CERVEZA AGUILA RETORNABLE 330CC","unit":"UNIDADES"},
+{"cat":"CERVEZAS","cod":"CER004","art":"CERVEZA CLUB COL DORADA RETORNABLE 330CC","unit":"UNIDADES"},
+{"cat":"CERVEZAS","cod":"CER006","art":"CERVEZA CLUB COL ROJA RETORNABLE 330 CC","unit":"UNIDADES"},
+{"cat":"CERVEZAS","cod":"CER009","art":"CERVEZA CORONA NRB SIXPACK X 330ML","unit":"UNIDADES"},
+{"cat":"CERVEZAS","cod":"CER010","art":"CERVEZA HEINIKEN BOT.NR 330 6X4","unit":"UNIDADES"},
+{"cat":"CERVEZAS","cod":"CER012","art":"CERVEZA STELLA ARTOIS SIXPACK NR 330 MEX","unit":"UNIDADES"},
+{"cat":"CERVEZAS","cod":"CER015","art":"HEINIKEN BARRIL 8 LTS PET","unit":"UNIDADES"},
+{"cat":"CERVEZAS","cod":"CER016","art":"CERVEZA PILSEN NEGRA COCINA","unit":"UNIDADES"},
+{"cat":"FRUVER","cod":"FRU001","art":"AGUACATE CHOCKETTE X KILO","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"FRU003","art":"AJI AMARILLO X KILO","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"FRU005","art":"AJI DULCE X KILO","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"FRU007","art":"AJI ROCOTO X KILO","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"FRU008","art":"AJO LIMPIO X KILO","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"FRU009","art":"ALBAHACA X KILO","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"FRU011","art":"ARANDANOS CAJA X 125GRA","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"FRU012","art":"ARVEJA DESGRANADA X KILO","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"FRU013","art":"BANANO X KILO","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"FRU016","art":"BROCOLI X KILO","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"FRU017","art":"BROTES DE RABANO 50","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"FRU018","art":"CAMOTE X KILO","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"FRU020","art":"CEBOLLA BLANCA LIMPIA X KILO","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"FRU021","art":"CEBOLLA MORADA LIMPIA","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"FRU022","art":"CEBOLLA PUERRO X KILO","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"FRU023","art":"CEBOLLA RAMA LIMPIA X KILO","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"FRU025","art":"CHAMPIÑON X KILO","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"FRU026","art":"CHAMPIÑON ORELLANA X KILO","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"FRU027","art":"CHAMPIÑON PORTOBELLO X KILO","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"FRU028","art":"CILANTRO LIMPIO X KILO","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"FRU029","art":"COCO X KILO","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"FRU031","art":"COROZO COSTENO X KILO","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"FRU035","art":"FRESA JUMBO I X KILO","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"FRU036","art":"GUAYABA X KILO","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"FRU038","art":"HIERBA BUENA X 500 KILO","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"FRU039","art":"JALAPEÑO X KILO","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"FRU040","art":"JENGIBRE X KILO","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"FRU041","art":"LAUREL X KILO","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"FRU042","art":"LIMON MANDARINO X KILO","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"FRU043","art":"LIMON TAHITI X KILO","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"FRU046","art":"MANDARINA X KILO","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"FRU047","art":"MANGO TOMMY X KILO","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"FRU049","art":"PEPINO EUROPEO X KILO","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"FRU051","art":"MAZORCA SIN CAPACHO X KILO","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"FRU054","art":"MORA X KILO","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"FRU057","art":"UCHUVA SIN CAPACHO","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"FRU058","art":"OREGANO X 500GR","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"FRU062","art":"PAPA CRIOLLA BALIN O CHIRIYA","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"FRU063","art":"PAPA NEVADA X KILO","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"FRU065","art":"PEPINO COHOMBRO X KILO","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"FRU067","art":"PEREJIL CRESPO X KILO","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"FRU069","art":"PIMENTON X KILO","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"FRU071","art":"PLATANO MADURO KILO","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"FRU072","art":"PLATANO VERDE X KILO","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"FRU074","art":"REMOLACHA X KILO","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"FRU075","art":"ROMERO X KILO","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"FRU077","art":"TOMATE CHERRY X KILO","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"FRU078","art":"TOMATE CHONTO X KILO","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"FRU080","art":"TOMATE PERLA X KILO","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"FRU081","art":"TOMILLO X KILO","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"FRU084","art":"MENTA X KILO","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"FRU085","art":"YUCA X KILO","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"FRU086","art":"ZANAHORIA TRONCO X KILO","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"FRU087","art":"AGUACATE HASS X KILO","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"FRU088","art":"ZUKINI VERDE X KILO","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"FRU098","art":"LECHUGA ROMANA 250G","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"FRU099","art":"COGOLLO EUROPEO 250","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"FRU105","art":"CEBOLLIN KILO","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"FRU112","art":"LECHUGA CRESPA KILO","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"FRU121","art":"UCHUVA CON CAPACHO KILO","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"FRU123","art":"ZARZAMORAS X 250G","unit":"GRAMOS"},
+{"cat":"FRUVER","cod":"ORD075","art":"APIO X KILO","unit":"GRAMOS"},
+{"cat":"GASEOSAS Y SODAS","cod":"GAS005","art":"AGUA TONICA TRADICIONAL JUNIPER X200ML","unit":"UNIDADES"},
+{"cat":"GASEOSAS Y SODAS","cod":"GAS010","art":"COLOMBIANA NACIONAL 400 ML PET X 15","unit":"UNIDADES"},
+{"cat":"GASEOSAS Y SODAS","cod":"GAS011","art":"CIDRA DE ROSAS JUNIPER X 207ML","unit":"UNIDADES"},
+{"cat":"GASEOSAS Y SODAS","cod":"GAS012","art":"COCA COLA 1.5 LT PET","unit":"UNIDADES"},
+{"cat":"GASEOSAS Y SODAS","cod":"GAS013","art":"COCA COLA 10 OZ VIDRIO","unit":"UNIDADES"},
+{"cat":"GASEOSAS Y SODAS","cod":"GAS014","art":"COCA COLA S/AZ 10 OZ","unit":"UNIDADES"},
+{"cat":"GASEOSAS Y SODAS","cod":"GAS015","art":"COCONUT JUNIPER X 207 MIL","unit":"UNIDADES"},
+{"cat":"GASEOSAS Y SODAS","cod":"GAS018","art":"GINGER BEER SIN LICOR JUNIPER X 200ML","unit":"UNIDADES"},
+{"cat":"GASEOSAS Y SODAS","cod":"GAS022","art":"JUNIPER TORONJA X207ML","unit":"UNIDADES"},
+{"cat":"GASEOSAS Y SODAS","cod":"GAS029","art":"SCHEEPPES SODA 10 OZ","unit":"UNIDADES"},
+{"cat":"GASEOSAS Y SODAS","cod":"GAS030","art":"GINGER ALE BOTELLA 300ML SCHWEPPES","unit":"UNIDADES"},
+{"cat":"GASEOSAS Y SODAS","cod":"GAS035","art":"SPRITE 400 ML","unit":"UNIDADES"},
+{"cat":"GASEOSAS Y SODAS","cod":"GAS053","art":"SODA HATSU X6 UND","unit":"UNIDADES"},
+{"cat":"INSUMOS BAR","cod":"ABA018","art":"NECTAR DE AGAVE ORGANICO 1.25 KG","unit":"GRAMOS"},
+{"cat":"INSUMOS BAR","cod":"ABA022","art":"AZUCAR SOBRES MANUELITA X200S X 5G","unit":"UNIDADES"},
+{"cat":"INSUMOS BAR","cod":"ABA031","art":"CANELA EN POLVO BADIA X454G","unit":"GRAMOS"},
+{"cat":"INSUMOS BAR","cod":"ABA032","art":"CARDAMOMO ORO X500GR (PELADO)","unit":"GRAMOS"},
+{"cat":"INSUMOS BAR","cod":"ABA033","art":"CLAVOS DE OLOR X125GR","unit":"GRAMOS"},
+{"cat":"INSUMOS BAR","cod":"ABA048","art":"CREMA DE COCO ROLAND X 960 GR","unit":"GRAMOS"},
+{"cat":"INSUMOS BAR","cod":"ABA058","art":"GOTAS AMARGAS BITTER ANGOSTURA 150G","unit":"GRAMOS"},
+{"cat":"INSUMOS BAR","cod":"ABA108","art":"SALSA EN POLVO TAJIN CLASICO X 142G","unit":"GRAMOS"},
+{"cat":"INSUMOS BAR","cod":"ABA121","art":"CAFE VENETO SELECT PEPA X 2.5 KG","unit":"GRAMOS"},
+{"cat":"INSUMOS BAR","cod":"ABA125","art":"FRESH CITRUS 1.5LT PET (12)","unit":"GRAMOS"},
+{"cat":"INSUMOS BAR","cod":"ABA127","art":"TABASCO PEPPER SAUCE 150ML","unit":"GRAMOS"},
+{"cat":"INSUMOS BAR","cod":"ABA128","art":"CLAMATO COCTEL DE TOMATE 946","unit":"GRAMOS"},
+{"cat":"INSUMOS BAR","cod":"ABA131","art":"LYCHEE SAN VALENTIN 567G DREN 225G","unit":"GRAMOS"},
+{"cat":"INSUMOS BAR","cod":"ABA135","art":"PULPA DE COCO X UNIDAD","unit":"UNIDADES"},
+{"cat":"INSUMOS BAR","cod":"ABA136","art":"PULPA DE FRUTOS DE ARANDANOS 10UND","unit":"UNIDADES"},
+{"cat":"INSUMOS BAR","cod":"ABA137","art":"PULPA MANGO 1000 GR","unit":"UNIDADES"},
+{"cat":"INSUMOS BAR","cod":"ABA139","art":"SYROPE DE FREIJOA 750ML","unit":"ONZA"},
+{"cat":"INSUMOS BAR","cod":"ABA157","art":"PULPA MANGO BICHE 1200GR","unit":"UNIDADES"},
+{"cat":"INSUMOS BAR","cod":"ABA159","art":"SALSA DE CHOCOLATE HERSHEYS X1360GR","unit":"GRAMOS"},
+{"cat":"INSUMOS BAR","cod":"ABA170","art":"SUGG SYRUP VAINILLA CHOCOANA VIDRIO X750ML","unit":"ONZA"},
+{"cat":"INSUMOS BAR","cod":"ABA172","art":"SUGG SYRUP LYCHE VIDRIO X750ML","unit":"ONZA"},
+{"cat":"INSUMOS BAR","cod":"ABA173","art":"JUGO DE ARANDANOS YUS PET 945 ML","unit":"ONZA"},
+{"cat":"INSUMOS BAR","cod":"ABA296","art":"PANELA PULV ORGANIC BLACKMILL SACHET 5GR","unit":"UNIDADES"},
+{"cat":"INSUMOS BAR","cod":"FRU002","art":"GUAYABA AGRIA KILO","unit":"GRAMOS"},
+{"cat":"INSUMOS BAR","cod":"FRU015","art":"BANDEJA UVA ISABELLA X KILO","unit":"GRAMOS"},
+{"cat":"INSUMOS BAR","cod":"FRU019","art":"CARAMBOLO BANDEJA X500G","unit":"GRAMOS"},
+{"cat":"INSUMOS BAR","cod":"FRU033","art":"FLOR DE JAMAICA X KILO","unit":"GRAMOS"},
+{"cat":"INSUMOS BAR","cod":"FRU034","art":"FLORES COMESTIBLES (PENSAMIENTOS)","unit":"GRAMOS"},
+{"cat":"INSUMOS BAR","cod":"FRU044","art":"LULO X KILO","unit":"GRAMOS"},
+{"cat":"INSUMOS BAR","cod":"FRU050","art":"MARACUYA X KILO","unit":"GRAMOS"},
+{"cat":"INSUMOS BAR","cod":"FRU056","art":"NARANJA VALENCIA X KILO","unit":"GRAMOS"},
+{"cat":"INSUMOS BAR","cod":"FRU070","art":"PINA ORO MIEL X KILO","unit":"GRAMOS"},
+{"cat":"INSUMOS BAR","cod":"FRU073","art":"PETALOS DE ROSAS","unit":"GRAMOS"},
+{"cat":"INSUMOS BAR","cod":"FRU082","art":"TORONJA X KILO","unit":"GRAMOS"},
+{"cat":"INSUMOS BAR","cod":"FRU091","art":"LIMON TAHITI KILO BAR","unit":"GRAMOS"},
+{"cat":"INSUMOS BAR","cod":"FRU092","art":"HIERBABUENA KILO BAR","unit":"GRAMOS"},
+{"cat":"INSUMOS BAR","cod":"FRU093","art":"FRESA JUMBO KILO BAR","unit":"GRAMOS"},
+{"cat":"INSUMOS BAR","cod":"FRU096","art":"MANGO TOMMY KILO BAR","unit":"GRAMOS"},
+{"cat":"INSUMOS BAR","cod":"FRU115","art":"CURUBA KILO","unit":"GRAMOS"},
+{"cat":"INSUMOS BAR","cod":"FRU120","art":"GULUPA X KILO","unit":"GRAMOS"},
+{"cat":"INSUMOS BAR","cod":"INB003","art":"ACEITE DE COCO VEGETAL","unit":"GRAMOS"},
+{"cat":"INSUMOS BAR","cod":"INB005","art":"ACIDO CITRICO 500GR","unit":"GRAMOS"},
+{"cat":"INSUMOS BAR","cod":"INB006","art":"ACIDO ASCORBICO 500GR","unit":"GRAMOS"},
+{"cat":"INSUMOS BAR","cod":"INB008","art":"ACIDO MALICO 500GR","unit":"GRAMOS"},
+{"cat":"INSUMOS BAR","cod":"LAC028","art":"LECHE UHT DESLACTOSADA BOLSA X 1000ML","unit":"GRAMOS"},
+{"cat":"LACTEOS","cod":"LAC001","art":"AREQUIPE ALPINA INSTITUCIONAL 5KG","unit":"GRAMOS"},
+{"cat":"LACTEOS","cod":"LAC004","art":"CREMA DE LECHE X 9700G","unit":"GRAMOS"},
+{"cat":"LACTEOS","cod":"LAC005","art":"CUAJADA COLANTA X 500G","unit":"GRAMOS"},
+{"cat":"LACTEOS","cod":"LAC009","art":"CAJA 10 LT VAINILLA POP CREM","unit":"GRAMOS"},
+{"cat":"LACTEOS","cod":"LAC010","art":"LECHE CONDENSADA LA LECHERA BOLSA X 4.5K","unit":"GRAMOS"},
+{"cat":"LACTEOS","cod":"LAC011","art":"LECHE UHT ENTERA BOLSA X 1000ML","unit":"GRAMOS"},
+{"cat":"LACTEOS","cod":"LAC013","art":"MANTEQUILLA FRESCA BATIDA X KILO","unit":"GRAMOS"},
+{"cat":"LACTEOS","cod":"LAC014","art":"QUESO ALPINA AZUL BLQ 8 LBS APROX","unit":"GRAMOS"},
+{"cat":"LACTEOS","cod":"LAC016","art":"QUESO ALPINA PARMESANO RAYADO 2.5 L","unit":"GRAMOS"},
+{"cat":"LACTEOS","cod":"LAC019","art":"QUESO COSTENO BLOQUE 2.5K","unit":"GRAMOS"},
+{"cat":"LACTEOS","cod":"LAC020","art":"QUESO CREMA GRANEL X 4K","unit":"GRAMOS"},
+{"cat":"LACTEOS","cod":"LAC022","art":"QUESO MOZZARELLA BLOQUE X 2.5K","unit":"GRAMOS"},
+{"cat":"LACTEOS","cod":"LAC023","art":"SUERO ATOYABUEY BONGA DEL SINU 5000","unit":"GRAMOS"},
+{"cat":"LACTEOS","cod":"LAC024","art":"YOGUR FRESA BOLSA X 900G","unit":"GRAMOS"},
+{"cat":"LACTEOS","cod":"LAC027","art":"QUESO PARMESSANO EN CUNA 1K","unit":"GRAMOS"},
+{"cat":"LACTEOS","cod":"LAC032","art":"QUESO MONPOSINO","unit":"GRAMOS"},
+{"cat":"LACTEOS","cod":"LAC033","art":"BURRATA DIBUFALA TARRO 6UDS 80GR","unit":"UNIDADES"},
+{"cat":"LACTEOS","cod":"LAC035","art":"LECHE POLVO COLANTA X900G","unit":"GRAMOS"},
+{"cat":"LACTEOS","cod":"LAC036","art":"YOGUR NATURAL BOLSA X 900G","unit":"GRAMOS"},
+{"cat":"LICORES","cod":"LIC001","art":"ABSOLUT 700 ML","unit":"ONZA"},
+{"cat":"LICORES","cod":"LIC002","art":"AGUARDIENTE ANTIOQUENO AZUL 375ML","unit":"UNIDADES"},
+{"cat":"LICORES","cod":"LIC003","art":"AGUARDIENTE ANTIOQUENO AZUL 750ML","unit":"ONZA"},
+{"cat":"LICORES","cod":"LIC007","art":"TEQUILA JOSE CUERVO SILVER X750 ML","unit":"ONZA"},
+{"cat":"LICORES","cod":"LIC008","art":"AMARETTO DISARONNO X 750","unit":"ONZA"},
+{"cat":"LICORES","cod":"LIC009","art":"APEROL X 750ML","unit":"ONZA"},
+{"cat":"LICORES","cod":"LIC011","art":"BAILEYS ORIGINAL 1.0L","unit":"ONZA"},
+{"cat":"LICORES","cod":"LIC015","art":"BUCHANANS 18 ANOS 750ML","unit":"ONZA"},
+{"cat":"LICORES","cod":"LIC017","art":"BUCHANANS DELUXE AGED 12 YEARS 0.750L","unit":"ONZA"},
+{"cat":"LICORES","cod":"LIC018","art":"BUCHANANS MASTER 0.75L","unit":"ONZA"},
+{"cat":"LICORES","cod":"LIC020","art":"BULLDOG GIN 750ML","unit":"ONZA"},
+{"cat":"LICORES","cod":"LIC021","art":"BULLEIT BOURBON 0.75L","unit":"ONZA"},
+{"cat":"LICORES","cod":"LIC022","art":"CAMPARI 750","unit":"ONZA"},
+{"cat":"LICORES","cod":"LIC027","art":"DON JULIO 70 700ML","unit":"ONZA"},
+{"cat":"LICORES","cod":"LIC028","art":"DON JULIO ANEJO X700ML","unit":"ONZA"},
+{"cat":"LICORES","cod":"LIC029","art":"DON JULIO REPOSADO 700ML","unit":"ONZA"},
+{"cat":"LICORES","cod":"LIC031","art":"GINEBRA HENDRICKS 750CC","unit":"ONZA"},
+{"cat":"LICORES","cod":"LIC032","art":"GINEBRA PINK GORDONS 700 ml","unit":"ONZA"},
+{"cat":"LICORES","cod":"LIC033","art":"GORDON DRY GIN 750 L50","unit":"ONZA"},
+{"cat":"LICORES","cod":"LIC034","art":"JOHNNIE WALKER BLACK LABEL 700ML","unit":"ONZA"},
+{"cat":"LICORES","cod":"LIC035","art":"L. TRIPLE SEC TEICHENNE 1000ML","unit":"ONZA"},
+{"cat":"LICORES","cod":"LIC038","art":"MEZCAL 400 CONEJOS JOVEN SPADIN 750 ML","unit":"ONZA"},
+{"cat":"LICORES","cod":"LIC041","art":"PISCO BARSOL QUEBRANTA 4000L","unit":"ONZA"},
+{"cat":"LICORES","cod":"LIC042","art":"DON JULIO BLANCO 0.70L","unit":"ONZA"},
+{"cat":"LICORES","cod":"LIC043","art":"RON BACARDI CARTA BLANCA SUPERIOR 980 ML","unit":"ONZA"},
+{"cat":"LICORES","cod":"LIC045","art":"AGUARDIENTE ANTIOQUENO ROJO 750ML","unit":"ONZA"},
+{"cat":"LICORES","cod":"LIC049","art":"RON MEDELLIN 3 ANOS 750ML","unit":"ONZA"},
+{"cat":"LICORES","cod":"LIC051","art":"RON MEDELLIN 8 ANOS 750ML","unit":"ONZA"},
+{"cat":"LICORES","cod":"LIC054","art":"RON PARCE BROTHERS BLEND 750ML","unit":"ONZA"},
+{"cat":"LICORES","cod":"LIC055","art":"RON SAILOR JERRY 700ML","unit":"ONZA"},
+{"cat":"LICORES","cod":"LIC057","art":"RON VIEJO DE CALDAS 3 ANOS 750 ML","unit":"ONZA"},
+{"cat":"LICORES","cod":"LIC058","art":"RON ZACAPA 23 ANOS 700ML","unit":"ONZA"},
+{"cat":"LICORES","cod":"LIC063","art":"GINEBRA SELVA X700ML","unit":"ONZA"},
+{"cat":"LICORES","cod":"LIC064","art":"SMIRNOFF NO.21 RED VODKA 0.7L","unit":"ONZA"},
+{"cat":"LICORES","cod":"LIC065","art":"TANQUERAY LONDON DRY GIN 0.70L","unit":"ONZA"},
+{"cat":"LICORES","cod":"LIC066","art":"VODKA BARTENDER 700ML","unit":"ONZA"},
+{"cat":"LICORES","cod":"LIC082","art":"TEQUILA PATRON SILVER 700","unit":"ONZA"},
+{"cat":"LICORES","cod":"LIC083","art":"MARTINI VERMUTH ROSSO 750ML","unit":"ONZA"},
+{"cat":"LICORES","cod":"LIC084","art":"MEZCAL UNION EL JOVEN 700ML","unit":"ONZA"},
+{"cat":"LICORES","cod":"LIC087","art":"VERMUTH DRY MARTINI 750","unit":"ONZA"},
+{"cat":"LICORES","cod":"LIC088","art":"VODKA SKYY 750ML","unit":"ONZA"},
+{"cat":"LICORES","cod":"LIC089","art":"VERMUTH BIANCO 750","unit":"ONZA"},
+{"cat":"LICORES","cod":"LIC090","art":"LICOR 43 750ML","unit":"ONZA"},
+{"cat":"LICORES","cod":"LIC091","art":"WHISKY OLD PARR 12 ANOS 750 ML","unit":"ONZA"},
+{"cat":"LICORES","cod":"LIC093","art":"GREY GOOSE ORIGINAL 700ML","unit":"ONZA"},
+{"cat":"LICORES","cod":"LIC096","art":"JOHNNIE WALKER RED LABEL 700ML","unit":"ONZA"},
+{"cat":"LICORES","cod":"LIC097","art":"AGUARDIENTE ANTIOQUENO REAL SIN AZUCAR 750ML","unit":"ONZA"},
+{"cat":"LICORES","cod":"LIC101","art":"CACHAZA 61 970ML","unit":"ONZA"},
+{"cat":"LICORES","cod":"LIC102","art":"TEQUILA PATRON REPOSADO 700","unit":"ONZA"},
+{"cat":"LICORES","cod":"LIC113","art":"COGNAC - BRANDY HENNESSY VS X 700ML","unit":"ONZA"},
+{"cat":"LICORES","cod":"LIC119","art":"RON CARBON 750ML","unit":"ONZA"},
+{"cat":"LICORES","cod":"LIC123","art":"TEQUILA PATRON CRISTALINO 700","unit":"ONZA"},
+{"cat":"LICORES","cod":"LIC124","art":"SOHO LYCHEE 700ML","unit":"ONZA"},
+{"cat":"LICORES","cod":"LIC129","art":"LICOR COINTREAU NARANJA (700 ML)","unit":"ONZA"},
+{"cat":"PESCADOS Y MARISCOS","cod":"PM001","art":"ATUN POR 130 GRAMOS","unit":"UNIDADES"},
+{"cat":"PESCADOS Y MARISCOS","cod":"PM003","art":"TUBOS DE CALAMAR X KILO","unit":"GRAMOS"},
+{"cat":"PESCADOS Y MARISCOS","cod":"PM004","art":"CAMARON CRUDO 41-50 0%","unit":"UNIDADES"},
+{"cat":"PESCADOS Y MARISCOS","cod":"PM005","art":"CARNE DE JAIBA CLAWN X KILO","unit":"GRAMOS"},
+{"cat":"PESCADOS Y MARISCOS","cod":"PM008","art":"COLA DE LANGOSTA UND 130G","unit":"UNIDADES"},
+{"cat":"PESCADOS Y MARISCOS","cod":"PM011","art":"FILETE DE SALMON X 180GN","unit":"UNIDADES"},
+{"cat":"PESCADOS Y MARISCOS","cod":"PM012","art":"FILETE DE TILAPIA FRESCA","unit":"GRAMOS"},
+{"cat":"PESCADOS Y MARISCOS","cod":"PM015","art":"LANGOSTINOS CRUDO 16/20 X UNIDAD","unit":"UNIDADES"},
+{"cat":"PESCADOS Y MARISCOS","cod":"PM016","art":"MEJILLON NEGRO 454GR","unit":"UNIDADES"},
+{"cat":"PESCADOS Y MARISCOS","cod":"PM017","art":"PALMITO DE CANGREJO x500GR","unit":"UNIDADES"},
+{"cat":"PESCADOS Y MARISCOS","cod":"PM018","art":"PALMITO KANIKAMA PREMIUM X 30UND","unit":"UNIDADES"},
+{"cat":"PESCADOS Y MARISCOS","cod":"PM019","art":"SALMON FRESCO 3-4TD","unit":"GRAMOS"},
+{"cat":"PESCADOS Y MARISCOS","cod":"PM020","art":"PULPO MEXICANO 2-4","unit":"GRAMOS"},
+{"cat":"PESCADOS Y MARISCOS","cod":"PM023","art":"TILAPIA ROJA X UND","unit":"UNIDADES"},
+{"cat":"PESCADOS Y MARISCOS","cod":"PM024","art":"TINTA DE CALAMAR SQUID INK X 500 GR","unit":"GRAMOS"},
+{"cat":"PROTEINAS","cod":"PRO004","art":"CHORIZO DE CERDO UND","unit":"UNIDADES"},
+{"cat":"PROTEINAS","cod":"PRO005","art":"COSTILLA X UND 500GR","unit":"UNIDADES"},
+{"cat":"PROTEINAS","cod":"PRO007","art":"FILETE DE POLLO X 120GR","unit":"UNIDADES"},
+{"cat":"PROTEINAS","cod":"PRO008","art":"POSTA DE RES UND X","unit":"UNIDADES"},
+{"cat":"PROTEINAS","cod":"PRO010","art":"SOBRE BARRIGA X KILO","unit":"GRAMOS"},
+{"cat":"PROTEINAS","cod":"PRO011","art":"SOLOMITO X 180G","unit":"UNIDADES"},
+{"cat":"PROTEINAS","cod":"PRO014","art":"TOCINETA PREMIUM X KILO","unit":"GRAMOS"},
+{"cat":"PROTEINAS","cod":"PRO020","art":"CHICHARRON UND 300G","unit":"UNIDADES"},
+{"cat":"PROTEINAS","cod":"PRO026","art":"JAMON SERRANO 80GR","unit":"GRAMOS"},
+{"cat":"VINOS","cod":"VIN010","art":"FINCA LAS MORAS BLACK LABEL MALBEC 750ML","unit":"UNIDADES"},
+{"cat":"VINOS","cod":"VIN048","art":"VINO PICCINI LAMBRUSCO ROSAD 750 ML","unit":"UNIDADES"},
+{"cat":"VINOS","cod":"VIN050","art":"VINO LAS MORAS BLANCO CHARDONAY 750ML","unit":"COPA"},
+{"cat":"VINOS","cod":"VIN053","art":"VINO LAS MORAS ROSADO SYRAH 750ML","unit":"COPA"},
+{"cat":"VINOS","cod":"VIN054","art":"VINO LAS MORAS TINTO CABERNET SAUV 750 ML","unit":"COPA"},
+{"cat":"VINOS","cod":"VIN056","art":"VINO PICCINI LAMBRUS TTO REGNO DOC 750 ML","unit":"UNIDADES"},
+{"cat":"VINOS","cod":"VIN058","art":"VINO ROSALEDA ROSE 750ML","unit":"COPA"},
+{"cat":"VINOS","cod":"VIN059","art":"VINO ROSALEDA SAUV BLANC 750 ML","unit":"COPA"},
+{"cat":"VINOS","cod":"VIN061","art":"VINO ROSALEDA TINTO MERLOT 750ML","unit":"COPA"},
+{"cat":"VINOS","cod":"VIN072","art":"LAS MORAS RESERVA CHARDONAY 750ML","unit":"UNIDADES"},
+{"cat":"VINOS","cod":"VIN073","art":"VINO TRAPICHE FINO MALBEC 750ML","unit":"UNIDADES"},
+{"cat":"VINOS","cod":"VIN076","art":"VINO TRAPICHE MERLOT VARIETAL 750L","unit":"UNIDADES"},
+{"cat":"VINOS","cod":"VIN125","art":"FINCA LAS MORAS BARREL SELEC MALBEC 750ML","unit":"UNIDADES"},
+{"cat":"MATERIAL DE EMPAQUE","cod":"EMP004","art":"AL-121 BASE","unit":"UNIDADES"},
+{"cat":"MATERIAL DE EMPAQUE","cod":"EMP010","art":"BOWLS DE BAMBO 750CC DARNEL","unit":"UNIDADES"},
+{"cat":"MATERIAL DE EMPAQUE","cod":"EMP064","art":"BOLSA ZIPLOC 20X30X100 UND","unit":"UNIDADES"},
+{"cat":"MATERIAL DE EMPAQUE","cod":"EMP068","art":"VASO ECONO TRANSPARENTE X12ONZ X 50UND","unit":"UNIDADES"},
+{"cat":"MATERIAL DE EMPAQUE","cod":"EMP073","art":"SET DE CUBIERTOS TAMI BCO+SER","unit":"UNIDADES"}
+  ]}
+];
+
+let currentBrand = 0;
+const quantities = [{}, {}, {}];
+
+function init() {
+  const tabsEl = document.getElementById('tabs');
+  brands.forEach((b, i) => {
+    const btn = document.createElement('button');
+    btn.className = 'tab' + (i === 0 ? ' active' : '');
+    btn.textContent = b.name;
+    btn.onclick = () => switchBrand(i);
+    tabsEl.appendChild(btn);
+  });
+  populateCatFilter();
+  renderTable();
+}
+
+function switchBrand(idx) {
+  currentBrand = idx;
+  document.querySelectorAll('.tab').forEach((t, i) => t.classList.toggle('active', i === idx));
+  document.getElementById('searchInput').value = '';
+  populateCatFilter();
+  renderTable();
+}
+
+function getCategories() {
+  return [...new Set(brands[currentBrand].items.map(i => i.cat))].sort();
+}
+
+function populateCatFilter() {
+  const sel = document.getElementById('catFilter');
+  const cats = getCategories();
+  sel.innerHTML = '<option value="">Todas las categorías</option>' +
+    cats.map(c => `<option value="${c}">${c}</option>`).join('');
+}
+
+function getFiltered() {
+  const q = document.getElementById('searchInput').value.toLowerCase();
+  const cat = document.getElementById('catFilter').value;
+  return brands[currentBrand].items.filter(item => {
+    const matchQ = !q || item.art.toLowerCase().includes(q) || item.cod.toLowerCase().includes(q);
+    const matchC = !cat || item.cat === cat;
+    return matchQ && matchC;
+  });
+}
+
+function renderTable() {
+  const items = getFiltered();
+  const catFilter = document.getElementById('catFilter').value;
+  const qs = quantities[currentBrand];
+  const body = document.getElementById('tableBody');
+
+  if (!items.length) {
+    body.innerHTML = `<tr><td colspan="4"><div class="no-results">Sin resultados para esa búsqueda</div></td></tr>`;
+  } else {
+    let html = '';
+    let lastCat = null;
+    items.forEach(item => {
+      if (!catFilter && item.cat !== lastCat) {
+        lastCat = item.cat;
+        html += `<tr class="cat-row"><td colspan="4"><span class="cat-label">${item.cat}</span></td></tr>`;
+      }
+      const val = qs[item.cod] || '';
+      const hasCls = val ? ' has-value' : '';
+      html += `<tr>
+        <td><span class="code">${item.cod}</span></td>
+        <td style="word-break:break-word">${item.art}</td>
+        <td class="unit-cell">${item.unit}</td>
+        <td style="text-align:center">
+          <input class="qty-input${hasCls}" type="number" min="0" step="any"
+            placeholder="0" value="${val}" data-cod="${item.cod}"
+            onchange="updateQty(this)" oninput="updateQty(this)">
+        </td>
+      </tr>`;
+    });
+    body.innerHTML = html;
+  }
+
+  const total = brands[currentBrand].items.length;
+  const filled = Object.keys(qs).filter(k => qs[k] !== '' && qs[k] != null).length;
+  document.getElementById('statsBar').innerHTML = `
+    <div class="stat"><strong>${total}</strong>Total insumos</div>
+    <div class="stat"><strong>${items.length}</strong>Mostrando</div>
+    <div class="stat"><strong>${filled}</strong>Con cantidad</div>
+  `;
+}
+
+function updateQty(input) {
+  const cod = input.dataset.cod;
+  const val = input.value.trim();
+  if (val === '' || val === '0') {
+    delete quantities[currentBrand][cod];
+    input.classList.remove('has-value');
+  } else {
+    quantities[currentBrand][cod] = val;
+    input.classList.add('has-value');
+  }
+}
+
+function saveAll() {
+  const msg = document.getElementById('savedMsg');
+  msg.style.display = 'inline';
+  setTimeout(() => { msg.style.display = 'none'; }, 2500);
+}
+
+init();
+</script>
+</body>
+</html>
