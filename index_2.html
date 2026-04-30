@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sistema de Inventarios</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #ffffff;
+    --bg-secondary: #f5f5f4;
+    --bg-tertiary: #eeecea;
+    --text: #1a1a18;
+    --text-muted: #6b6b68;
+    --text-hint: #9c9c98;
+    --border: rgba(0,0,0,0.12);
+    --border-strong: rgba(0,0,0,0.25);
+    --accent: #D85A30;
+    --accent-green: #1D9E75;
+    --info-bg: #e6f1fb;
+    --info-text: #0c447c;
+    --radius: 8px;
+    --radius-lg: 12px;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1c1c1a; --bg-secondary: #262624; --bg-tertiary: #303030;
+      --text: #f0ede8; --text-muted: #a0a09c; --text-hint: #6e6e6a;
+      --border: rgba(255,255,255,0.10); --border-strong: rgba(255,255,255,0.22);
+      --info-bg: #042c53; --info-text: #85b7eb;
+    }
+  }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: var(--bg-tertiary); color: var(--text); min-height: 100vh;
+  }
+
+  .page { max-width: 980px; margin: 0 auto; padding: 2rem 1rem 4rem; }
+
+  /* ── Header ── */
+  .app-header {
+    display: flex; align-items: flex-start;
+    justify-content: space-between; gap: 12px;
+    margin-bottom: 1.5rem; flex-wrap: wrap;
+  }
+  .app-title { font-size: 22px; font-weight: 500; }
+  .app-subtitle { font-size: 13px; color: var(--text-muted); margin-top: 3px; }
+  .header-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+
+  .btn {
+    padding: 8px 18px; font-size: 13px; font-weight: 500;
+    border: 0.5px solid var(--border-strong); border-radius: var(--radius);
+    background: var(--bg); color: var(--text); cursor: pointer; transition: background 0.15s;
+  }
+  .btn:hover { background: var(--bg-secondary); }
+  .btn-primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .btn-primary:hover { opacity: 0.88; background: var(--accent); }
+  .saved-msg { font-size: 12px; color: var(--accent-green); font-weight: 500; display: none; }
+
+  /* ── Marca tabs (nivel 1) ── */
+  .tabs-marca {
+    display: flex; gap: 2px;
+    border-bottom: 0.5px solid var(--border);
+    flex-wrap: wrap;
+  }
+  .tab-marca {
+    padding: 9px 22px; font-size: 14px; font-weight: 500;
+    cursor: pointer; border: none; background: none;
+    color: var(--text-muted); border-bottom: 2px solid transparent;
+    margin-bottom: -0.5px; transition: color 0.15s;
+  }
+  .tab-marca.active { color: var(--text); border-bottom-color: var(--accent); }
+  .tab-marca:hover:not(.active) { color: var(--text); }
+
+  /* ── Sede pills (nivel 2) ── */
+  .sede-bar {
+    display: flex; gap: 6px; align-items: center;
+    background: var(--bg-secondary);
+    border: 0.5px solid var(--border);
+    border-top: none;
+    padding: 10px 14px;
+    border-radius: 0 0 var(--radius) var(--radius);
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+  }
+  .sede-label {
+    font-size: 11px; font-weight: 500; color: var(--text-muted);
+    text-transform: uppercase; letter-spacing: 0.05em; margin-right: 4px;
+  }
+  .pill-sede {
+    padding: 4px 14px; font-size: 12px; font-weight: 500;
+    border: 0.5px solid var(--border-strong); border-radius: 999px;
+    background: var(--bg); color: var(--text-muted);
+    cursor: pointer; transition: all 0.15s; white-space: nowrap;
+  }
+  .pill-sede:hover { border-color: var(--accent); color: var(--accent); }
+  .pill-sede.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+  /* ── Controls ── */
+  .controls { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; align-items: center; }
+  .search-box {
+    flex: 1; min-width: 200px; padding: 8px 12px; font-size: 13px;
+    border: 0.5px solid var(--border-strong); border-radius: var(--radius);
+    background: var(--bg); color: var(--text);
+  }
+  .search-box:focus { outline: none; border-color: var(--accent); }
+  .cat-filter {
+    padding: 8px 10px; font-size: 12px;
+    border: 0.5px solid var(--border-strong); border-radius: var(--radius);
+    background: var(--bg); color: var(--text); cursor: pointer;
+  }
+
+  /* ── Stats ── */
+  .stats { display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
+  .stat { background: var(--bg-secondary); border-radius: var(--radius); padding: 8px 16px; font-size: 12px; color: var(--text-muted); }
+  .stat strong { font-size: 16px; font-weight: 500; color: var(--text); display: block; margin-bottom: 1px; }
+  .stat-sede { background: var(--info-bg); }
+  .stat-sede strong { color: var(--info-text); }
+
+  /* ── Table ── */
+  .table-wrap {
+    border: 0.5px solid var(--border); border-radius: var(--radius-lg);
+    overflow: hidden; background: var(--bg);
+    max-height: 560px; overflow-y: auto;
+  }
+  table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+  col.c-cod  { width: 110px; }
+  col.c-unit { width: 90px; }
+  col.c-qty  { width: 90px; }
+
+  thead th {
+    font-size: 11px; font-weight: 500; color: var(--text-muted);
+    text-align: left; padding: 8px 12px; border-bottom: 0.5px solid var(--border);
+    position: sticky; top: 0; background: var(--bg); z-index: 2;
+    text-transform: uppercase; letter-spacing: 0.04em;
+  }
+  thead th:last-child { text-align: center; }
+
+  td {
+    padding: 6px 12px; font-size: 13px; color: var(--text);
+    border-bottom: 0.5px solid var(--border); vertical-align: middle;
+  }
+  tr:last-child td { border-bottom: none; }
+  tbody tr:hover td { background: var(--bg-secondary); }
+
+  .cat-row td { padding: 0; background: var(--bg-tertiary) !important; }
+  .cat-label { display: block; padding: 5px 12px; font-size: 11px; font-weight: 500; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; }
+
+  .code { font-family: 'SFMono-Regular', Consolas, monospace; font-size: 11px; color: var(--text-muted); }
+  .unit-cell { font-size: 11px; color: var(--text-hint); text-align: center; }
+  .qty-input {
+    width: 68px; padding: 4px 8px; font-size: 12px;
+    border: 0.5px solid var(--border-strong); border-radius: 6px;
+    background: var(--bg); color: var(--text); text-align: right; display: block; margin: 0 auto;
+  }
+  .qty-input:focus { outline: none; border-color: var(--accent); }
+  .qty-input.has-value { background: var(--info-bg); border-color: var(--info-text); color: var(--info-text); font-weight: 500; }
+
+  /* ── Estados ── */
+  .state-box { text-align: center; padding: 3rem 1rem; }
+  .state-box p { font-size: 14px; color: var(--text-muted); margin-top: 8px; }
+  .spinner {
+    width: 28px; height: 28px; border: 2px solid var(--border);
+    border-top-color: var(--accent); border-radius: 50%;
+    animation: spin 0.7s linear infinite; margin: 0 auto 12px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .error-box {
+    background: #fcebeb; border: 0.5px solid #f09595;
+    border-radius: var(--radius-lg); padding: 1.25rem 1.5rem; margin: 1rem 0;
+  }
+  .error-box h3 { font-size: 14px; font-weight: 500; color: #a32d2d; margin-bottom: 6px; }
+  .error-box p  { font-size: 13px; color: #791f1f; line-height: 1.5; }
+  .error-box code { background: rgba(0,0,0,0.06); padding: 1px 5px; border-radius: 4px; font-size: 12px; }
+
+  @media print {
+    body { background: white; }
+    .app-header, .tabs-marca, .sede-bar, .controls, .stats, .header-actions { display: none !important; }
+    .table-wrap { max-height: none; border: none; }
+    .qty-input { border: 1px solid #ccc !important; background: white !important; }
+    .page { padding: 0; max-width: 100%; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <div class="app-header">
+    <div>
+      <div class="app-title">Sistema de Inventarios</div>
+      <div class="app-subtitle" id="subtitleEl">Cargando...</div>
+    </div>
+    <div class="header-actions">
+      <span class="saved-msg" id="savedMsg">✓ Guardado</span>
+      <button class="btn" onclick="window.print()">Imprimir</button>
+      <button class="btn btn-primary" onclick="saveAll()">Guardar conteo</button>
+    </div>
+  </div>
+
+  <!-- Nivel 1: Marcas -->
+  <div class="tabs-marca" id="tabsMarca"></div>
+
+  <!-- Nivel 2: Sedes -->
+  <div class="sede-bar" id="sedeBar">
+    <span class="sede-label">Sede</span>
+  </div>
+
+  <!-- Filtros -->
+  <div class="controls">
+    <input class="search-box" type="text" id="searchInput"
+      placeholder="Buscar por nombre o código..." oninput="renderTable()">
+    <select class="cat-filter" id="catFilter" onchange="renderTable()"></select>
+  </div>
+
+  <div class="stats" id="statsBar"></div>
+
+  <div class="table-wrap">
+    <table>
+      <colgroup><col class="c-cod"><col><col class="c-unit"><col class="c-qty"></colgroup>
+      <thead>
+        <tr>
+          <th>Código</th>
+          <th>Artículo</th>
+          <th style="text-align:center">Unidad</th>
+          <th style="text-align:center">Cantidad</th>
+        </tr>
+      </thead>
+      <tbody id="tableBody">
+        <tr><td colspan="4">
+          <div class="state-box"><div class="spinner"></div><p>Cargando inventario...</p></div>
+        </td></tr>
+      </tbody>
+    </table>
+  </div>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script>
+// ════════════════════════════════════════════════════════════════
+//  CONFIGURACIÓN — edita solo este bloque para cambiar marcas/sedes
+// ════════════════════════════════════════════════════════════════
+const MARCAS = [
+  {
+    nombre:  'Rocoto',
+    archivo: 'FORMATO%20DE%20INVENTARIOS%20ROCOTO.xlsx',
+    sedes:   ['Laureles', 'Provenza', 'Amsterdam'],
+  },
+  {
+    nombre:  'Malanga',
+    archivo: 'FORMATO%20DE%20INVENTARIOS%20MALANGA.xlsx',
+    sedes:   ['Malanga', 'Ciudad del Río'],
+  },
+  {
+    nombre:  'Hot Wings',
+    archivo: 'FORMATO%20DE%20INVENTARIOS%20HOT%20WINGS.xlsx',
+    sedes:   ['Hot Wings'],
+  },
+];
+// ════════════════════════════════════════════════════════════════
+
+let brands     = [];
+let marcaIdx   = 0;
+let sedeActiva = '';
+// quantities[marcaNombre][sedeNombre][cod] = valor
+let quantities = {};
+
+// ── Parsear Excel ────────────────────────────────────────────────
+function parsearExcel(buffer, nombreMarca) {
+  const wb   = XLSX.read(buffer, { type: 'array' });
+  const ws   = wb.Sheets[wb.SheetNames[0]];
+  const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+
+  let headerIdx = 0;
+  for (let i = 0; i < Math.min(rows.length, 10); i++) {
+    if (rows[i].some(v => String(v).toLowerCase().includes('subfamilia'))) {
+      headerIdx = i; break;
+    }
+  }
+
+  const SKIP = new Set(['', 'nan', 'none', 'subfamilia', 'cód. barras',
+    'articulo', 'artículo', '(en blanco)', 'inventario', 'inventario general']);
+
+  const items = [];
+  for (let i = headerIdx + 1; i < rows.length; i++) {
+    const row  = rows[i];
+    const cat  = String(row[0] ?? '').trim();
+    const cod  = String(row[1] ?? '').trim();
+    const art  = String(row[2] ?? '').trim();
+    const unit = String(row[3] ?? '').trim();
+
+    if (!cat || !cod || !art) continue;
+    if (SKIP.has(cat.toLowerCase()) || SKIP.has(cod.toLowerCase())) continue;
+    if (cat.toLowerCase().includes('subfamilia')) continue;
+
+    items.push({ cat, cod, art, unit });
+  }
+  return { name: nombreMarca, items };
+}
+
+// ── Cargar todos los Excel en paralelo ───────────────────────────
+async function cargarMarcas() {
+  const resultados = await Promise.all(
+    MARCAS.map(async m => {
+      try {
+        const resp = await fetch(m.archivo);
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        const buf  = await resp.arrayBuffer();
+        const data = parsearExcel(buf, m.nombre);
+        data.sedes = m.sedes;
+        return data;
+      } catch (e) {
+        return { error: true, nombre: m.nombre, archivo: m.archivo, msg: e.message };
+      }
+    })
+  );
+
+  const errores = resultados.filter(r => r.error);
+  brands = resultados.filter(r => !r.error);
+
+  if (errores.length) {
+    const lista = errores.map(e => `<code>${e.archivo}</code> — ${e.msg}`).join('<br>');
+    document.getElementById('tableBody').innerHTML = `
+      <tr><td colspan="4"><div class="error-box">
+        <h3>No se pudieron cargar estos archivos:</h3>
+        <p>${lista}</p>
+        <p style="margin-top:8px">Verifica que los .xlsx estén en la raíz del repositorio con ese nombre exacto.</p>
+      </div></td></tr>`;
+    if (!brands.length) return;
+  }
+
+  // Inicializar cantidades por marca → sede
+  brands.forEach(b => {
+    quantities[b.name] = {};
+    b.sedes.forEach(s => { quantities[b.name][s] = {}; });
+  });
+
+  document.getElementById('subtitleEl').textContent =
+    brands.map(b => b.name).join(' · ') + ' — Conteo de fin de mes';
+
+  construirTabs();
+  cambiarMarca(0);
+}
+
+// ── Tabs de marca ────────────────────────────────────────────────
+function construirTabs() {
+  const el = document.getElementById('tabsMarca');
+  el.innerHTML = '';
+  brands.forEach((b, i) => {
+    const btn = document.createElement('button');
+    btn.className = 'tab-marca' + (i === 0 ? ' active' : '');
+    btn.textContent = b.name;
+    btn.onclick = () => cambiarMarca(i);
+    el.appendChild(btn);
+  });
+}
+
+function cambiarMarca(idx) {
+  marcaIdx = idx;
+  document.querySelectorAll('.tab-marca').forEach((t, i) => t.classList.toggle('active', i === idx));
+  // Seleccionar primera sede de la marca
+  seleccionarSede(brands[idx].sedes[0]);
+}
+
+// ── Pills de sede ────────────────────────────────────────────────
+function seleccionarSede(sede) {
+  sedeActiva = sede;
+  construirSedePills();
+  document.getElementById('searchInput').value = '';
+  document.getElementById('catFilter').value   = '';
+  poblarFiltro();
+  renderTable();
+}
+
+function construirSedePills() {
+  const bar = document.getElementById('sedeBar');
+  bar.innerHTML = '<span class="sede-label">Sede</span>';
+  brands[marcaIdx].sedes.forEach(s => {
+    const pill = document.createElement('button');
+    pill.className = 'pill-sede' + (s === sedeActiva ? ' active' : '');
+    pill.textContent = s;
+    pill.onclick = () => seleccionarSede(s);
+    bar.appendChild(pill);
+  });
+}
+
+// ── Filtro de categorías ─────────────────────────────────────────
+function poblarFiltro() {
+  const cats = [...new Set(brands[marcaIdx].items.map(i => i.cat))].sort();
+  const sel  = document.getElementById('catFilter');
+  sel.innerHTML = '<option value="">Todas las categorías</option>' +
+    cats.map(c => `<option value="${c}">${c}</option>`).join('');
+}
+
+function obtenerFiltrados() {
+  const q   = document.getElementById('searchInput').value.toLowerCase();
+  const cat = document.getElementById('catFilter').value;
+  return brands[marcaIdx].items.filter(item => {
+    const mQ = !q || item.art.toLowerCase().includes(q) || item.cod.toLowerCase().includes(q);
+    const mC = !cat || item.cat === cat;
+    return mQ && mC;
+  });
+}
+
+// ── Renderizar tabla ─────────────────────────────────────────────
+function renderTable() {
+  const items     = obtenerFiltrados();
+  const catFilter = document.getElementById('catFilter').value;
+  const qs        = quantities[brands[marcaIdx].name]?.[sedeActiva] ?? {};
+  const body      = document.getElementById('tableBody');
+
+  if (!items.length) {
+    body.innerHTML = `<tr><td colspan="4"><div class="state-box"><p>Sin resultados</p></div></td></tr>`;
+  } else {
+    let html = '', lastCat = null;
+    items.forEach(item => {
+      if (!catFilter && item.cat !== lastCat) {
+        lastCat = item.cat;
+        html += `<tr class="cat-row"><td colspan="4"><span class="cat-label">${item.cat}</span></td></tr>`;
+      }
+      const val = qs[item.cod] || '';
+      html += `<tr>
+        <td><span class="code">${item.cod}</span></td>
+        <td style="word-break:break-word">${item.art}</td>
+        <td class="unit-cell">${item.unit}</td>
+        <td style="text-align:center">
+          <input class="qty-input${val ? ' has-value' : ''}" type="number"
+            min="0" step="any" placeholder="0" value="${val}"
+            data-cod="${item.cod}" oninput="actualizarCantidad(this)">
+        </td>
+      </tr>`;
+    });
+    body.innerHTML = html;
+  }
+
+  const total  = brands[marcaIdx].items.length;
+  const llenos = Object.keys(qs).filter(k => qs[k] !== '' && qs[k] != null).length;
+  document.getElementById('statsBar').innerHTML = `
+    <div class="stat stat-sede"><strong>${sedeActiva}</strong>Sede activa</div>
+    <div class="stat"><strong>${total}</strong>Total insumos</div>
+    <div class="stat"><strong>${items.length}</strong>Mostrando</div>
+    <div class="stat"><strong>${llenos}</strong>Con cantidad</div>
+  `;
+}
+
+function actualizarCantidad(input) {
+  const cod = input.dataset.cod;
+  const val = input.value.trim();
+  const qs  = quantities[brands[marcaIdx].name][sedeActiva];
+  if (!val || val === '0') {
+    delete qs[cod];
+    input.classList.remove('has-value');
+  } else {
+    qs[cod] = val;
+    input.classList.add('has-value');
+  }
+  // Refrescar contador "Con cantidad"
+  const llenos = Object.keys(qs).filter(k => qs[k] !== '' && qs[k] != null).length;
+  const stats  = document.querySelectorAll('#statsBar .stat strong');
+  if (stats[3]) stats[3].textContent = llenos;
+}
+
+function saveAll() {
+  const msg = document.getElementById('savedMsg');
+  msg.style.display = 'inline';
+  setTimeout(() => { msg.style.display = 'none'; }, 2500);
+}
+
+cargarMarcas();
+</script>
+</body>
+</html>
